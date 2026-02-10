@@ -1,0 +1,5 @@
+{
+  "name": "AENA SAVIA Validator",
+  "description": "Validator for AENA airport POS software certification files (11004/11008 coherence check).",
+  "requestFramePermissions": []
+}
