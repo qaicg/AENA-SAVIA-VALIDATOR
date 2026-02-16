@@ -2,11 +2,14 @@
 import { GoogleGenAI } from "@google/genai";
 import { AggregatedData, ParsedSale11004, ParsedSummary11008, ValidationResult } from "../types";
 
-// Initialize AI Client
-// Note: In a production Vite app, this would typically be import.meta.env.VITE_API_KEY
-// But per instructions we use process.env.API_KEY logic availability.
-const apiKey = process.env.API_KEY || ''; 
-const ai = new GoogleGenAI({ apiKey });
+// Acceso seguro a la API Key para evitar errores de referencia en el navegador
+const getApiKey = () => {
+  try {
+    return process.env.API_KEY || '';
+  } catch (e) {
+    return '';
+  }
+};
 
 export const analyzeErrorWithGemini = async (
   results: ValidationResult[],
@@ -15,27 +18,29 @@ export const analyzeErrorWithGemini = async (
   aggregatedData: AggregatedData | null
 ): Promise<string> => {
   
+  const apiKey = getApiKey();
+  
   if (!apiKey) {
     return "Falta la clave API. Por favor configure la variable de entorno para usar funciones de IA.";
   }
 
-  // 1. Find the most critical error to analyze (Invalid > Warning)
+  const ai = new GoogleGenAI({ apiKey });
+
+  // 1. Encontrar el error más crítico para analizar
   const criticalError = results.find(r => r.status === 'invalid') || results.find(r => r.status === 'warning');
 
   if (!criticalError) {
     return "No se encontraron errores críticos para analizar.";
   }
 
-  // 2. Prepare Context based on Error Type
+  // 2. Preparar contexto basado en el tipo de error
   let contextData = "";
   let promptContext = "";
 
   const errMsg = criticalError.message.toLowerCase();
 
   if (errMsg.includes('ticket internal math') || errMsg.includes('mismatch')) {
-    // Extract the specific ticket if mentioned in details
     const contextStr = criticalError.details?.[0]?.context || "";
-    // Try to find file by name or ticket number match
     const problemFile = salesFiles.find(f => contextStr.includes(f.fileName) || (f.header.NUM_TICKET && contextStr.includes(f.header.NUM_TICKET)));
     
     if (problemFile) {
@@ -61,7 +66,6 @@ export const analyzeErrorWithGemini = async (
       `;
 
       if (summaryFile) {
-          // Provide 11008 content + First 3 11004 headers as sample
           const sampleSales = salesFiles.slice(0, 3).map(f => f.header);
           contextData = `
           SUMMARY FILE (11008) HEADER:
@@ -73,22 +77,21 @@ export const analyzeErrorWithGemini = async (
       }
   }
   else {
-      // Generic fallback
       promptContext = `Error: ${criticalError.message}\nDetails: ${JSON.stringify(criticalError.details)}`;
       contextData = "No specific raw file context extracted for this error type.";
   }
 
-  // 3. Construct System Instruction & Prompt
+  // 3. Instrucciones del sistema y Prompt
   const systemInstruction = `
     Eres un auditor experto en control de calidad para la certificación AENA SAVIA POS. 
     Tu trabajo es depurar errores de validación en archivos separados por tuberías "11004" (Ticket) y "11008" (Resumen).
     
     Reglas:
     1. Analiza la discrepancia matemática.
-    2. Sugiere la causa probable (por ejemplo, "El importe bruto de la cabecera incluye impuestos, pero las líneas suman el neto", o "Error de redondeo en el tercer decimal").
-    3. Sé específico. Si ves una tasa de impuestos del 10% aplicada a una base de 100, y el resultado es 111, señala el error matemático.
-    4. Formato de moneda AENA: Enteros que representan "milésimas" (por ejemplo, 10000 = 10.00 Euros).
-    5. Mantén la respuesta concisa, profesional y siempre en ESPAÑOL.
+    2. Sugiere la causa probable (por ejemplo, "El importe bruto de la cabecera incluye impuestos, pero las líneas suman el neto").
+    3. Sé específico. Indica los valores exactos donde detectes el fallo.
+    4. Formato de moneda AENA: Enteros que representan "milésimas" (10000 = 10.00 Euros).
+    5. Responde siempre en ESPAÑOL de forma profesional y concisa.
   `;
 
   const userPrompt = `
@@ -108,7 +111,7 @@ export const analyzeErrorWithGemini = async (
         contents: userPrompt,
         config: {
             systemInstruction: systemInstruction,
-            temperature: 0.2, // Low temperature for analytical precision
+            temperature: 0.2,
         }
     });
 
