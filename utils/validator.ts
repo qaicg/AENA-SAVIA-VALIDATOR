@@ -51,17 +51,22 @@ export const inspectSingleFile = (file: ParsedSale11004): SingleFileInspection =
     let sumNet = 0;
     let sumDiscount = 0;
     let sumUnits = 0;
-    let sumTax = 0; // Derived (Gross - Net) although sometimes Tax is explicit in file, usually Gross/Net are the source of truth
-
+    
+    // Item Sums
     file.items.forEach(item => {
         sumGross += item.IMPBRUTO_A;
         sumNet += item.IMPNETO_A;
         sumUnits += item.UDS_A;
         sumDiscount += calculateTotalItemDiscount(item, file.header);
-        
-        // Approximate tax from line
-        // sumTax += (item.IMPBRUTO_A - item.IMPNETO_A); 
     });
+
+    // Payment Sums (7xx)
+    let sumPayments = 0;
+    file.payments.forEach(p => sumPayments += p.IMPORTE);
+
+    // Tax Sums (6xx)
+    let sumTaxes = 0;
+    file.taxes.forEach(t => sumTaxes += t.CUOTA);
 
     const checks = [];
 
@@ -83,7 +88,25 @@ export const inspectSingleFile = (file: ParsedSale11004): SingleFileInspection =
         isOk: file.header.IMPNETO_T === sumNet
     });
 
-    // 3. Units Check (Critical)
+    // 3. Tax Amount Check (NEW)
+    checks.push({
+        label: "Total Tax (6xx vs Header)",
+        headerValue: fmtMoney(file.header.IMPIMPUESTOS_T),
+        calcValue: fmtMoney(sumTaxes),
+        diff: fmtMoney(file.header.IMPIMPUESTOS_T - sumTaxes),
+        isOk: Math.abs(file.header.IMPIMPUESTOS_T - sumTaxes) < 50 // Tolerance for rounding
+    });
+
+    // 4. Payments Check (NEW)
+    checks.push({
+        label: "Total Payments (7xx vs Gross)",
+        headerValue: fmtMoney(file.header.IMPBRUTO_T),
+        calcValue: fmtMoney(sumPayments),
+        diff: fmtMoney(file.header.IMPBRUTO_T - sumPayments),
+        isOk: Math.abs(file.header.IMPBRUTO_T - sumPayments) < 50 // Tolerance
+    });
+
+    // 5. Units Check (Critical)
     checks.push({
         label: "Total Units (N_UDS vs Sum UDS_A)",
         headerValue: file.header.N_UDS,
@@ -92,18 +115,7 @@ export const inspectSingleFile = (file: ParsedSale11004): SingleFileInspection =
         isOk: file.header.N_UDS === sumUnits
     });
 
-    // 4. Line Count Check (Critical)
-    checks.push({
-        label: "Line Count (N_ARTICULOS vs Rows)",
-        headerValue: file.header.N_ARTICULOS,
-        calcValue: file.items.length,
-        diff: file.header.N_ARTICULOS - file.items.length,
-        isOk: file.header.N_ARTICULOS === file.items.length
-    });
-
-    // 5. Discount Check (Warning Only)
-    // We check if header matches sum of lines, but we mark as warning if not, not fail
-    // STRICT CHECK: < 100 units (10 cents) tolerance
+    // 6. Discount Check (Warning Only)
     const diffDisc = Math.abs(file.header.IMPDESCUENTO_T - sumDiscount);
     const isDiscMatch = diffDisc < 100; 
     
@@ -112,15 +124,17 @@ export const inspectSingleFile = (file: ParsedSale11004): SingleFileInspection =
         headerValue: fmtMoney(file.header.IMPDESCUENTO_T),
         calcValue: fmtMoney(sumDiscount),
         diff: fmtMoney(file.header.IMPDESCUENTO_T - sumDiscount),
-        isOk: true, // Always OK as per business rule "header doesn't have to match lines"
-        isWarning: !isDiscMatch // But warn if different so user knows
+        isOk: true, 
+        isWarning: !isDiscMatch
     });
 
     return {
         fileName: file.fileName,
         ticketNum: file.header.NUM_TICKET,
         checks,
-        lines: file.items
+        lines: file.items,
+        taxes: file.taxes,
+        payments: file.payments
     };
 };
 
@@ -192,17 +206,14 @@ export const aggregateSales = (sales: ParsedSale11004[]): AggregatedData => {
       data.global.countSale++;
       data.global.totalGrossSale += sale.header.IMPBRUTO_T;
       data.global.totalNetSale += sale.header.IMPNETO_T;
-      // data.global.totalDiscountSale += sale.header.IMPDESCUENTO_T; // OLD: Taking from Header
     } else if (isReturn) {
       data.global.countReturn++;
       data.global.totalGrossReturn += sale.header.IMPBRUTO_T;
       data.global.totalNetReturn += sale.header.IMPNETO_T;
-      // data.global.totalDiscountReturn += sale.header.IMPDESCUENTO_T; // OLD: Taking from Header
     }
     
     // 2. Detailed Aggregation (Items)
     sale.items.forEach(item => {
-      // Key: SubFamily
       const key = String(item.TIPO_SUBFAMILIA);
       
       if (!data.groups[key]) {
@@ -213,18 +224,17 @@ export const aggregateSales = (sales: ParsedSale11004[]): AggregatedData => {
         };
       }
 
-      // CALCULATE TOTAL DISCOUNT (Line + Prorated Header)
       const totalItemDiscount = calculateTotalItemDiscount(item, sale.header);
 
       if (isSale) {
-         data.global.totalDiscountSale += totalItemDiscount; // NEW: Accumulate from items
+         data.global.totalDiscountSale += totalItemDiscount; 
          
          data.groups[key].grossSale += item.IMPBRUTO_A;
          data.groups[key].netSale += item.IMPNETO_A;
          data.groups[key].discountSale += totalItemDiscount;
          data.groups[key].qtySale += item.UDS_A; 
       } else if (isReturn) {
-         data.global.totalDiscountReturn += totalItemDiscount; // NEW: Accumulate from items
+         data.global.totalDiscountReturn += totalItemDiscount; 
 
          data.groups[key].grossReturn += item.IMPBRUTO_A;
          data.groups[key].netReturn += item.IMPNETO_A;
@@ -234,7 +244,6 @@ export const aggregateSales = (sales: ParsedSale11004[]): AggregatedData => {
     });
   });
 
-  // Handle case with no files
   if (data.global.minTicket === Number.MAX_SAFE_INTEGER) data.global.minTicket = 0;
 
   return data;
@@ -379,7 +388,6 @@ export const validateCoherence = (
 
   globalDiscountChecks.forEach(chk => {
        const diff = Math.abs(chk.val - chk.ref);
-       // Requirement: Tolerance valid if difference is strictly LESS THAN 10 cents (100 units)
        if (diff >= 100) { 
            results.push({
                status: 'invalid',
@@ -465,7 +473,7 @@ export const validateCoherence = (
         { name: 'IMPNETO', c: calc.netSale, s: sumLine.impNeto },
         { name: 'UDS_D', c: calc.qtyReturn, s: sumLine.udsD },
         { name: 'IMPBRUTO_D', c: calc.grossReturn, s: sumLine.impBrutoD },
-        { name: 'IMPNETO_D', c: calc.netReturn, s: sumLine.impNetoD }, // NEW
+        { name: 'IMPNETO_D', c: calc.netReturn, s: sumLine.impNetoD }, 
     ];
 
     checks.forEach(k => {
@@ -477,7 +485,6 @@ export const validateCoherence = (
     
     // Discount Check (Sales)
     const diffDesc = Math.abs(calc.discountSale - sumLine.impDesc);
-    // Requirement: Tolerance valid if difference is strictly LESS THAN 10 cents (100 units)
     if (diffDesc >= 100) {
         subfamiliesError = true;
         results.push({ 
@@ -494,7 +501,6 @@ export const validateCoherence = (
 
     // Discount Check (Returns)
     const diffDescD = Math.abs(calc.discountReturn - sumLine.impDescD);
-    // Requirement: Tolerance valid if difference is strictly LESS THAN 10 cents (100 units)
     if (diffDescD >= 100) {
         subfamiliesError = true;
         results.push({ 
@@ -526,11 +532,9 @@ export const validateCoherence = (
       passedChecks.push({ field: 'Subfamilies', expected: 'Full Match', actual: `${subfamiliesChecked} Groups Verified`, context: 'Detailed Aggregation' });
   }
 
-  // Final Result Generation
   const invalidResults = results.filter(r => r.status === 'invalid');
   
   if (invalidResults.length === 0) {
-    // If NO errors, return a single VALID result with all the detailed proofs
     return [{ 
         status: 'valid', 
         message: 'All coherence checks passed successfully.',
@@ -538,6 +542,5 @@ export const validateCoherence = (
     }];
   }
 
-  // If there are errors, return them
   return results;
 };

@@ -4,9 +4,9 @@ import { ParsedSale11004, ValidationResult } from "../types";
 // Helper to check if string is empty (handles null/undefined/whitespace)
 const isEmpty = (val: string) => !val || val.trim() === '';
 
-// Helper to check for strict positive integer (No decimals, no negatives, digits only)
-const isStrictPositiveInteger = (val: string) => {
-    return /^\d+$/.test(val);
+// Helper to check for Integer (Allows negative numbers for Returns/Adjustments)
+const isValidInteger = (val: string) => {
+    return /^-?\d+$/.test(val);
 };
 
 // AENA SAVIA Field Specifications
@@ -37,16 +37,16 @@ const SPECS = {
         9: { len: 12, type: 'M', name: 'IMPVENTA_A' },
         12: { len: 12, type: 'M', name: 'IMPDESCUENTO_1' }
     },
-    PAYMENT: { // 6xx
-        0: { len: 3, type: 'F', name: 'ID_REGISTRO' },
-        1: { len: 2, type: 'M', name: 'TIPO_MEDIO' }, // Usually 1 digit, allow 2
-        3: { len: 12, type: 'M', name: 'IMPORTE' }
-    },
-    TAX: { // 7xx
+    TAX: { // 6xx
         0: { len: 3, type: 'F', name: 'ID_REGISTRO' },
         1: { len: 2, type: 'M', name: 'TIPO_IMPUESTO' },
         3: { len: 12, type: 'M', name: 'BASE' },
-        4: { len: 12, type: 'M', name: 'CUOTA' }
+        // Amount is Last Field
+    },
+    PAYMENT: { // 7xx
+        0: { len: 3, type: 'F', name: 'ID_REGISTRO' },
+        1: { len: 2, type: 'M', name: 'TIPO_MEDIO' }, // Usually 1 digit, allow 2
+        // Amount is Last Field
     }
 };
 
@@ -134,8 +134,8 @@ export const validateSyntaxAndSemantics = (files: ParsedSale11004[]): Validation
                 const numericHeaderIndices = [3, 4, 6, 11, 12, 13, 14, 15, 16, 19, 30, 32];
                 numericHeaderIndices.forEach(i => {
                     const val = getVal(i);
-                    if (!isEmpty(val) && !isStrictPositiveInteger(val)) {
-                        details.push({ field: `Header [${i}]`, expected: 'Positive Integer', actual: `"${val}"`, context: `Header` });
+                    if (!isEmpty(val) && !isValidInteger(val)) {
+                        details.push({ field: `Header [${i}]`, expected: 'Integer', actual: `"${val}"`, context: `Header` });
                         hasSemanticError = true;
                     }
                 });
@@ -166,8 +166,8 @@ export const validateSyntaxAndSemantics = (files: ParsedSale11004[]): Validation
                 const numericItemIndices = [4, 5, 6, 8, 9, 12, 13, 14, 19, 21];
                 numericItemIndices.forEach(i => {
                     const val = getVal(i);
-                    if (!isEmpty(val) && !isStrictPositiveInteger(val)) {
-                        details.push({ field: `Item [${i}]`, expected: 'Positive Integer', actual: `"${val}"`, context: `Line ${idx+1}` });
+                    if (!isEmpty(val) && !isValidInteger(val)) {
+                        details.push({ field: `Item [${i}]`, expected: 'Integer', actual: `"${val}"`, context: `Line ${idx+1}` });
                         hasSemanticError = true;
                     }
                 });
@@ -178,13 +178,13 @@ export const validateSyntaxAndSemantics = (files: ParsedSale11004[]): Validation
                     validateFieldLength(getVal(i), i, SPECS.ITEM, `Line ${idx+1}`);
                 });
             }
-            // --- TAXES (700-799) ---
-            else if (lineId >= 700 && lineId <= 799) {
+            // --- TAXES (600-699) ---
+            else if (lineId >= 600 && lineId <= 699) {
                 taxLinesCount++;
                 // Mandatory
                 const mandatoryTax = [
                     { i: 1, n: 'Tax Type' },
-                    { i: 4, n: 'Amount' }
+                    { i: parts.length - 1, n: 'Amount' } // Last Field
                 ];
                 mandatoryTax.forEach(m => {
                      if (isEmpty(getVal(m.i))) {
@@ -194,10 +194,10 @@ export const validateSyntaxAndSemantics = (files: ParsedSale11004[]): Validation
                 });
 
                 // Numeric Check
-                [1, 3, 4].forEach(i => {
+                [1, 3, parts.length - 1].forEach(i => {
                      const val = getVal(i);
-                     if (!isEmpty(val) && !isStrictPositiveInteger(val)) {
-                        details.push({ field: `Tax [${i}]`, expected: 'Positive Integer', actual: `"${val}"`, context: `Line ${idx+1}` });
+                     if (!isEmpty(val) && !isValidInteger(val)) {
+                        details.push({ field: `Tax [${i}]`, expected: 'Integer', actual: `"${val}"`, context: `Line ${idx+1}` });
                         hasSemanticError = true;
                     }
                 });
@@ -208,12 +208,12 @@ export const validateSyntaxAndSemantics = (files: ParsedSale11004[]): Validation
                     validateFieldLength(getVal(i), i, SPECS.TAX, `Line ${idx+1}`);
                 });
             }
-            // --- PAYMENTS (600-699) ---
-            else if (lineId >= 600 && lineId <= 699) {
+            // --- PAYMENTS (700-799) ---
+            else if (lineId >= 700 && lineId <= 799) {
                 paymentLinesCount++;
                  const mandatoryPay = [
                     { i: 1, n: 'Pay Type' },
-                    { i: 3, n: 'Amount' }
+                    { i: parts.length - 1, n: 'Amount' } // Last Field
                 ];
                 mandatoryPay.forEach(m => {
                      if (isEmpty(getVal(m.i))) {
@@ -223,10 +223,10 @@ export const validateSyntaxAndSemantics = (files: ParsedSale11004[]): Validation
                 });
 
                 // Numeric Check
-                [1, 2, 3].forEach(i => {
+                [1, parts.length - 1].forEach(i => {
                      const val = getVal(i);
-                     if (!isEmpty(val) && !isStrictPositiveInteger(val)) {
-                        details.push({ field: `Pay [${i}]`, expected: 'Positive Integer', actual: `"${val}"`, context: `Line ${idx+1}` });
+                     if (!isEmpty(val) && !isValidInteger(val)) {
+                        details.push({ field: `Pay [${i}]`, expected: 'Integer', actual: `"${val}"`, context: `Line ${idx+1}` });
                         hasSemanticError = true;
                     }
                 });
@@ -249,11 +249,11 @@ export const validateSyntaxAndSemantics = (files: ParsedSale11004[]): Validation
             hasSemanticError = true;
         }
         if (taxLinesCount === 0) {
-             details.push({ field: 'Structure', expected: '>0 Tax Lines (7xx)', actual: '0', context: 'File Structure' });
+             details.push({ field: 'Structure', expected: '>0 Tax Lines (6xx)', actual: '0', context: 'File Structure' });
              hasSemanticError = true;
         }
         if (paymentLinesCount === 0) {
-            details.push({ field: 'Structure', expected: '>0 Payment Lines (6xx)', actual: '0', context: 'File Structure' });
+            details.push({ field: 'Structure', expected: '>0 Payment Lines (7xx)', actual: '0', context: 'File Structure' });
             hasSemanticError = true; 
         }
 
@@ -278,8 +278,8 @@ export const validateSyntaxAndSemantics = (files: ParsedSale11004[]): Validation
                 { field: 'Data Types', expected: 'Numeric fields must be Integers (Mill format)', actual: '100% Valid', context: 'Semantic' },
                 { field: 'Header Integrity', expected: 'Date, Time, Z, Ticket present', actual: 'Confirmed', context: 'Header' },
                 { field: 'Detail Lines', expected: 'Items (5xx) present', actual: `${totalItems} Lines Verified`, context: 'Structure' },
-                { field: 'Tax Lines', expected: 'Taxes (7xx) present', actual: `${totalTaxes} Lines Verified`, context: 'Structure' },
-                { field: 'Payment Lines', expected: 'Payments (6xx) present', actual: `${totalPayments} Lines Verified`, context: 'Structure' }
+                { field: 'Tax Lines', expected: 'Taxes (6xx) present', actual: `${totalTaxes} Lines Verified`, context: 'Structure' },
+                { field: 'Payment Lines', expected: 'Payments (7xx) present', actual: `${totalPayments} Lines Verified`, context: 'Structure' }
             ]
         });
     }

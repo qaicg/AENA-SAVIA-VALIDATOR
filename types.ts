@@ -57,11 +57,26 @@ export interface SaleItemLine {
   IMPDESCUENTO_3: number; // Pos 22 (Index 21)
 }
 
+export interface SaleTaxLine {
+  ID_REGISTRO: string; // 6xx
+  TIPO_IMPUESTO: number; 
+  BASE: number; 
+  CUOTA: number; // Last field
+}
+
+export interface SalePaymentLine {
+  ID_REGISTRO: string; // 7xx
+  TIPO_MEDIO: number; 
+  IMPORTE: number; // Last field
+}
+
 export interface ParsedSale11004 {
   fileName: string;
   rawContent: string; // NEW: Required for syntax validation
   header: SaleHeader;
   items: SaleItemLine[];
+  taxes: SaleTaxLine[];
+  payments: SalePaymentLine[];
 }
 
 // 11008 - Summary Transaction
@@ -193,4 +208,6 @@ export interface SingleFileInspection {
         isWarning?: boolean; // For non-critical mismatches (like Discount header vs lines)
     }[];
     lines: SaleItemLine[];
+    taxes: SaleTaxLine[];
+    payments: SalePaymentLine[];
 }

@@ -1,5 +1,5 @@
 
-import { ParsedSale11004, ParsedSummary11008, ParsedSystemEvent, SaleHeader, SaleItemLine, SummaryAggregationLine, SummaryHeader, SystemEventHeader, TransactionType } from "../types";
+import { ParsedSale11004, ParsedSummary11008, ParsedSystemEvent, SaleHeader, SaleItemLine, SalePaymentLine, SaleTaxLine, SummaryAggregationLine, SummaryHeader, SystemEventHeader, TransactionType } from "../types";
 
 export const parseAenaInt = (val: string): number => {
   if (!val || val.trim() === '') return 0;
@@ -60,6 +60,8 @@ export const parse11004 = (fileName: string, content: string): ParsedSale11004 =
   };
 
   const items: SaleItemLine[] = [];
+  const taxes: SaleTaxLine[] = [];
+  const payments: SalePaymentLine[] = [];
 
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
@@ -68,12 +70,7 @@ export const parse11004 = (fileName: string, content: string): ParsedSale11004 =
     const idRegistro = parseInt(p[0], 10);
 
     if (idRegistro >= 500 && idRegistro <= 599) {
-      // FIXED MAPPING 5xx LINES
-      // AutoIt SubfamiliasParser:
-      // $SubfamiliaDiccionario.Add ("IMPNETO",$tempArray[6-1]) -> Index 5
-      // $SubfamiliaDiccionario.Add ("IMPBRUTO",$tempArray[7-1]) -> Index 6
-      // Index 9 -> IMPVENTA (Pos 10)
-      
+      // 5xx - ITEMS
       items.push({
         ID_REGISTRO_A: p[0],
         CD_ARTICULO: p[1],
@@ -88,10 +85,30 @@ export const parse11004 = (fileName: string, content: string): ParsedSale11004 =
         IMPDESCUENTO_2: parseAenaInt(p[19]),
         IMPDESCUENTO_3: parseAenaInt(p[21]),
       });
+    } else if (idRegistro >= 600 && idRegistro <= 699) {
+        // 6xx - TAXES
+        // Pos 2 (Index 1): Type
+        // Pos 4 (Index 3): Base
+        // Last Field: Cuota
+        taxes.push({
+            ID_REGISTRO: p[0],
+            TIPO_IMPUESTO: parseAenaInt(p[1]),
+            BASE: parseAenaInt(p[3]),
+            CUOTA: parseAenaInt(p[p.length - 1])
+        });
+    } else if (idRegistro >= 700 && idRegistro <= 799) {
+        // 7xx - PAYMENTS
+        // Pos 2 (Index 1): Type
+        // Last Field: Amount
+        payments.push({
+            ID_REGISTRO: p[0],
+            TIPO_MEDIO: parseAenaInt(p[1]),
+            IMPORTE: parseAenaInt(p[p.length - 1])
+        });
     }
   }
 
-  return { fileName, rawContent: content, header, items };
+  return { fileName, rawContent: content, header, items, taxes, payments };
 };
 
 export const parse11008 = (fileName: string, content: string): ParsedSummary11008 => {
