@@ -5,12 +5,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AENA SAVIA Validator</title>
+    
+    <!-- 1. Shim de proceso (debe ser lo primero) -->
+    <script>
+      window.process = { 
+        env: { 
+          API_KEY: "" // Se llenará desde el entorno si está disponible
+        } 
+      };
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <script>
-      // Shim para evitar que la app crashee si process.env no está definido en el navegador
-      window.process = window.process || { env: { API_KEY: "" } };
-      
       tailwind.config = {
         theme: {
           extend: {
@@ -42,6 +50,8 @@
         }
       }
     </script>
+
+    <!-- 2. Mapa de importaciones corregido -->
     <script type="importmap">
 {
   "imports": {
@@ -54,7 +64,8 @@
   }
 }
 </script>
-    <!-- Carga del punto de entrada de la aplicación -->
+
+    <!-- 3. Carga del módulo principal -->
     <script type="module" src="index.tsx"></script>
   </head>
   <body class="bg-gray-100 text-slate-800 antialiased h-screen overflow-hidden">

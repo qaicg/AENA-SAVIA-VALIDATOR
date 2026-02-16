@@ -2,10 +2,13 @@
 import { GoogleGenAI } from "@google/genai";
 import { AggregatedData, ParsedSale11004, ParsedSummary11008, ValidationResult } from "../types";
 
-// Acceso seguro a la API Key para evitar errores de referencia en el navegador
-const getApiKey = () => {
+/**
+ * Obtiene la clave API de forma segura.
+ * Intenta leer de process.env.API_KEY inyectado por el bundler o el shim del HTML.
+ */
+const getApiKey = (): string => {
   try {
-    return process.env.API_KEY || '';
+    return (window as any).process?.env?.API_KEY || '';
   } catch (e) {
     return '';
   }
@@ -21,10 +24,8 @@ export const analyzeErrorWithGemini = async (
   const apiKey = getApiKey();
   
   if (!apiKey) {
-    return "Falta la clave API. Por favor configure la variable de entorno para usar funciones de IA.";
+    return "Falta la clave API. Asegúrate de que el archivo .env.local tenga la clave API_KEY configurada correctamente.";
   }
-
-  const ai = new GoogleGenAI({ apiKey });
 
   // 1. Encontrar el error más crítico para analizar
   const criticalError = results.find(r => r.status === 'invalid') || results.find(r => r.status === 'warning');
@@ -32,6 +33,8 @@ export const analyzeErrorWithGemini = async (
   if (!criticalError) {
     return "No se encontraron errores críticos para analizar.";
   }
+
+  const ai = new GoogleGenAI({ apiKey });
 
   // 2. Preparar contexto basado en el tipo de error
   let contextData = "";
@@ -87,22 +90,20 @@ export const analyzeErrorWithGemini = async (
     Tu trabajo es depurar errores de validación en archivos separados por tuberías "11004" (Ticket) y "11008" (Resumen).
     
     Reglas:
-    1. Analiza la discrepancia matemática.
-    2. Sugiere la causa probable (por ejemplo, "El importe bruto de la cabecera incluye impuestos, pero las líneas suman el neto").
-    3. Sé específico. Indica los valores exactos donde detectes el fallo.
-    4. Formato de moneda AENA: Enteros que representan "milésimas" (10000 = 10.00 Euros).
-    5. Responde siempre en ESPAÑOL de forma profesional y concisa.
+    1. Analiza la discrepancia matemática basándote en los datos.
+    2. Sugiere la causa probable según la normativa AENA.
+    3. Formato de moneda AENA: Enteros que representan "milésimas" (ej: 10€ = 10000).
+    4. Responde siempre en ESPAÑOL, de forma técnica y concisa.
   `;
 
   const userPrompt = `
-    He encontrado un error de validación durante la certificación.
-    
+    Contexto de error:
     ${promptContext}
 
-    Contexto de datos:
+    Datos crudos:
     ${contextData}
 
-    Por favor, explica por qué ocurre este error y cómo corregir la lógica del software TPV.
+    Por favor, analiza estos datos y explica por qué ocurre este error técnico.
   `;
 
   try {
@@ -111,13 +112,13 @@ export const analyzeErrorWithGemini = async (
         contents: userPrompt,
         config: {
             systemInstruction: systemInstruction,
-            temperature: 0.2,
+            temperature: 0.1,
         }
     });
 
-    return response.text || "La IA no pudo generar un análisis.";
+    return response.text || "La IA no pudo generar un informe detallado en este momento.";
   } catch (error) {
     console.error("AI Analysis Failed", error);
-    return "Error al conectar con el servicio de análisis IA. Por favor verifica tu conexión o clave API.";
+    return "Error al conectar con la IA de análisis. Verifica tu clave API y conexión.";
   }
 };
