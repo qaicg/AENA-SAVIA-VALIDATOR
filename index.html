@@ -1,20 +1,11 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AENA SAVIA Validator</title>
     
-    <!-- 1. Shim de proceso (debe ser lo primero) -->
-    <script>
-      window.process = { 
-        env: { 
-          API_KEY: "" // Se llenará desde el entorno si está disponible
-        } 
-      };
-    </script>
-
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
@@ -22,36 +13,16 @@
       tailwind.config = {
         theme: {
           extend: {
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-            },
+            fontFamily: { sans: ['Inter', 'sans-serif'] },
             colors: {
-              aena: {
-                green: '#8DB72D', 
-                dark: '#2D3748',
-                light: '#F7FAFC',
-                accent: '#729624'
-              },
-              slate: {
-                850: '#1e293b', 
-                900: '#0f172a'  
-              }
-            },
-            keyframes: {
-                'grid-flow': {
-                    '0%': { backgroundPosition: '0 0' },
-                    '100%': { backgroundPosition: '24px 24px' }
-                }
-            },
-            animation: {
-                'grid-flow': 'grid-flow 4s linear infinite'
+              aena: { green: '#8DB72D', dark: '#2D3748', light: '#F7FAFC', accent: '#729624' },
+              slate: { 850: '#1e293b', 900: '#0f172a' }
             }
           }
         }
       }
     </script>
 
-    <!-- 2. Mapa de importaciones corregido -->
     <script type="importmap">
 {
   "imports": {
@@ -60,12 +31,12 @@
     "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
     "@google/genai": "https://esm.sh/@google/genai@1.40.0",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/"
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "vite": "https://esm.sh/vite@^7.3.1"
   }
 }
 </script>
 
-    <!-- 3. Carga del módulo principal -->
     <script type="module" src="index.tsx"></script>
   </head>
   <body class="bg-gray-100 text-slate-800 antialiased h-screen overflow-hidden">

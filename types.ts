@@ -1,5 +1,5 @@
 
-// Common Types
+// ... (mantenemos los tipos existentes)
 export enum TransactionType {
   START_DAY = '11001',
   END_DAY = '11002',
@@ -16,107 +16,91 @@ export interface FileMetadata {
   errors: string[];
 }
 
-// 11004 - Sales Transaction
+// --- TIPOS EXISTENTES ---
 export interface SaleHeader {
   COD_TRANSACC: string;
   FECHA_REAL: string;
   HORA_REAL: string;
-  NUM_Z: string; // Pos 4 (Index 3)
-  NUM_TICKET: string; // Pos 5 (Index 4)
-  TIPO_VENTA: number; // Pos 7 (Index 6) - 1: Normal, 2: Return
-  IMPNETO_T: number; // Pos 13 (Index 12)
-  IMPBRUTO_T: number; // Pos 12 (Index 11) 
-  IMPIMPUESTOS_T: number; // Pos 14 (Index 13)
-  IMPDESCUENTO_T: number; // Pos 15 (Index 14)
-  
-  // Header Discount Percentages for Proration
-  DTO_PORC_1: number; // Pos 16 (Index 15)
-  N_ARTICULOS: number; // Pos 17 (Index 16)
-  N_UDS: number; // Pos 20 (Index 19)
-  
-  DTO_PORC_2: number; // Pos 31 (Index 30)
-  DTO_PORC_3: number; // Pos 33 (Index 32)
-}
-
-export interface SaleBody {
-  // Simplified flat structure for validation
+  NUM_Z: string;
+  NUM_TICKET: string;
+  TIPO_VENTA: number;
+  IMPNETO_T: number;
+  IMPBRUTO_T: number;
+  IMPIMPUESTOS_T: number;
+  IMPDESCUENTO_T: number;
+  DTO_PORC_1: number;
+  N_ARTICULOS: number;
+  N_UDS: number;
+  DTO_PORC_2: number;
+  DTO_PORC_3: number;
 }
 
 export interface SaleItemLine {
-  ID_REGISTRO_A: string; // Pos 1 (Index 0) - 5xx
-  CD_ARTICULO: string; // Pos 2 (Index 1)
-  TIPO_SUBFAMILIA: number; // Pos 5 (Index 4)
-  IMPNETO_A: number; // Pos 6 (Index 5)
-  IMPBRUTO_A: number; // Pos 7 (Index 6)
-  UDS_A: number; // Pos 9 (Index 8)
-  IMPVENTA_A: number; // Pos 10 (Index 9) - Required for proration base
-  IMPDESCUENTO_1: number; // Pos 13 (Index 12)
-  TIPO_FISCAL: number; // Pos 14 (Index 13)
-  TAX_RATE: number; // Pos 15 (Index 14)
-  IMPDESCUENTO_2: number; // Pos 20 (Index 19)
-  IMPDESCUENTO_3: number; // Pos 22 (Index 21)
+  ID_REGISTRO_A: string;
+  CD_ARTICULO: string;
+  TIPO_SUBFAMILIA: number;
+  IMPNETO_A: number;
+  IMPBRUTO_A: number;
+  UDS_A: number;
+  IMPVENTA_A: number;
+  IMPDESCUENTO_1: number;
+  TIPO_FISCAL: number;
+  TAX_RATE: number;
+  IMPDESCUENTO_2: number;
+  IMPDESCUENTO_3: number;
 }
 
 export interface SaleTaxLine {
-  ID_REGISTRO: string; // 6xx
+  ID_REGISTRO: string;
   TIPO_IMPUESTO: number; 
   BASE: number; 
-  CUOTA: number; // Last field
+  CUOTA: number;
 }
 
 export interface SalePaymentLine {
-  ID_REGISTRO: string; // 7xx
+  ID_REGISTRO: string;
   TIPO_MEDIO: number; 
-  IMPORTE: number; // Last field
+  IMPORTE: number;
 }
 
 export interface ParsedSale11004 {
   fileName: string;
-  rawContent: string; // NEW: Required for syntax validation
+  rawContent: string;
   header: SaleHeader;
   items: SaleItemLine[];
   taxes: SaleTaxLine[];
   payments: SalePaymentLine[];
 }
 
-// 11008 - Summary Transaction
 export interface SummaryHeader {
-  COD_TRANSACC: string; // Pos 1
-  FECHA_REAL: string; // Pos 2
-  NUM_Z: string; // Pos 5 (Index 4)
-  
-  CD_TICKET_I: string; // Pos 6 (Index 5) - Initial Ticket
-  CD_TICKET_F: string; // Pos 7 (Index 6) - Final Ticket
-
-  // Venta Normal (1)
-  N_VENTAS: number; // Pos 9 (Index 8)
-  IMPBRUTO_V: number; // Pos 10 (Index 9)
-  IMPNETO_V: number; // Pos 11 (Index 10)
-  IMPDESCUENTO_V: number; // Pos 12 (Index 11)
-
-  // Devolucion (2)
-  N_DEVOLUCIONES: number; // Pos 13 (Index 12)
-  IMPBRUTO_D: number; // Pos 14 (Index 13)
-  IMPNETO_D: number; // Pos 15 (Index 14)
-  IMPDESCUENTO_D: number; // Pos 16 (Index 15)
+  COD_TRANSACC: string;
+  FECHA_REAL: string;
+  NUM_Z: string;
+  CD_TICKET_I: string;
+  CD_TICKET_F: string;
+  N_VENTAS: number;
+  IMPBRUTO_V: number;
+  IMPNETO_V: number;
+  IMPDESCUENTO_V: number;
+  N_DEVOLUCIONES: number;
+  IMPBRUTO_D: number;
+  IMPNETO_D: number;
+  IMPDESCUENTO_D: number;
 }
 
 export interface SummaryAggregationLine {
   ID_REGISTRO: string; 
-  TIPO_FAMILIA: number; // Pos 2 (Index 1)
-  TIPO_SUBFAMILIA: number; // Pos 3 (Index 2) - AutoIt uses this as key
-  TIPO_FISCAL: number; // Pos 4 (Index 3)
-  
-  // Totals for this grouping
-  ARTICULOS_V: number; // Pos 5 (Index 4) - Qty Venta
-  IMPBRUTO_VSFZ: number; // Pos 6 (Index 5)
-  IMPNETO_VSFZ: number; // Pos 7 (Index 6)
-  IMPDESCUENTO_VSFZ: number; // Pos 8 (Index 7)
-
-  ARTICULOS_D: number; // Pos 9 (Index 8) - Qty Devolucion
-  IMPBRUTO_DSFZ: number; // Pos 10 (Index 9)
-  IMPNETO_DSFZ: number; // Pos 11 (Index 10)
-  IMPDESCUENTO_DSFZ: number; // Pos 13 (Index 12) - Note AutoIt skips index 11?
+  TIPO_FAMILIA: number;
+  TIPO_SUBFAMILIA: number;
+  TIPO_FISCAL: number;
+  ARTICULOS_V: number;
+  IMPBRUTO_VSFZ: number;
+  IMPNETO_VSFZ: number;
+  IMPDESCUENTO_VSFZ: number;
+  ARTICULOS_D: number;
+  IMPBRUTO_DSFZ: number;
+  IMPNETO_DSFZ: number;
+  IMPDESCUENTO_DSFZ: number;
 }
 
 export interface ParsedSummary11008 {
@@ -125,10 +109,9 @@ export interface ParsedSummary11008 {
   aggregations: SummaryAggregationLine[];
 }
 
-// 11001/11002 - Start/End Day (For Z Check)
 export interface SystemEventHeader {
   COD_TRANSACC: string;
-  NUM_Z: string; // Pos 4 (Index 3)
+  NUM_Z: string;
 }
 
 export interface ParsedSystemEvent {
@@ -150,13 +133,10 @@ export interface ValidationResult {
 
 export interface SubfamilyAggregation {
     subFamily: number;
-    
-    // Calculated from 11004s
     grossSale: number;
     netSale: number;
     discountSale: number;
     qtySale: number;
-
     grossReturn: number;
     netReturn: number;
     discountReturn: number;
@@ -164,19 +144,14 @@ export interface SubfamilyAggregation {
 }
 
 export interface AggregatedData {
-  // Key: SubFamily ID
   groups: Record<string, SubfamilyAggregation>;
-  
   global: {
     totalGrossSale: number;
     totalNetSale: number;
     totalDiscountSale: number;
     countSale: number;
-    
-    // Ticket Range
     minTicket: number;
     maxTicket: number;
-
     totalGrossReturn: number;
     totalNetReturn: number;
     totalDiscountReturn: number;
@@ -191,8 +166,8 @@ export interface FileDiscountBreakdown {
   subFamilies: {
       id: number;
       discount: number;
-      gross: number; // IMPBRUTO (Final Paid)
-      base: number;  // IMPVENTA (Original Value)
+      gross: number;
+      base: number;
   }[];
 }
 
@@ -203,11 +178,35 @@ export interface SingleFileInspection {
         label: string;
         headerValue: number | string;
         calcValue: number | string;
-        diff: number | string; // 0 if match, otherwise the difference
+        diff: number | string;
         isOk: boolean;
-        isWarning?: boolean; // For non-critical mismatches (like Discount header vs lines)
+        isWarning?: boolean;
     }[];
     lines: SaleItemLine[];
     taxes: SaleTaxLine[];
     payments: SalePaymentLine[];
+}
+
+// --- NUEVOS TIPOS PARA API ---
+
+export interface ApiResponse {
+  certified: boolean;
+  timestamp: string;
+  summary: {
+    totalFiles: number;
+    errors: number;
+    warnings: number;
+  };
+  results: ValidationResult[];
+  reportUrl: string;
+}
+
+export interface ApiDocumentation {
+  endpoint: string;
+  method: string;
+  params: {
+    name: string;
+    type: string;
+    description: string;
+  }[];
 }

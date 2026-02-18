@@ -2,18 +2,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { AggregatedData, ParsedSale11004, ParsedSummary11008, ValidationResult } from "../types";
 
-/**
- * Obtiene la clave API de forma segura.
- * Intenta leer de process.env.API_KEY inyectado por el bundler o el shim del HTML.
- */
-const getApiKey = (): string => {
-  try {
-    return (window as any).process?.env?.API_KEY || '';
-  } catch (e) {
-    return '';
-  }
-};
-
 export const analyzeErrorWithGemini = async (
   results: ValidationResult[],
   salesFiles: ParsedSale11004[],
@@ -21,12 +9,6 @@ export const analyzeErrorWithGemini = async (
   aggregatedData: AggregatedData | null
 ): Promise<string> => {
   
-  const apiKey = getApiKey();
-  
-  if (!apiKey) {
-    return "Falta la clave API. Asegúrate de que el archivo .env.local tenga la clave API_KEY configurada correctamente.";
-  }
-
   // 1. Encontrar el error más crítico para analizar
   const criticalError = results.find(r => r.status === 'invalid') || results.find(r => r.status === 'warning');
 
@@ -34,7 +16,8 @@ export const analyzeErrorWithGemini = async (
     return "No se encontraron errores críticos para analizar.";
   }
 
-  const ai = new GoogleGenAI({ apiKey });
+  // Fix: Obtained API key exclusively from process.env.API_KEY and use it directly per SDK guidelines.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
   // 2. Preparar contexto basado en el tipo de error
   let contextData = "";
@@ -107,6 +90,7 @@ export const analyzeErrorWithGemini = async (
   `;
 
   try {
+    // Fix: Using correct ai.models.generateContent pattern with Gemini 3 Flash model.
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: userPrompt,
@@ -116,6 +100,7 @@ export const analyzeErrorWithGemini = async (
         }
     });
 
+    // Fix: Access .text property directly (it is not a method).
     return response.text || "La IA no pudo generar un informe detallado en este momento.";
   } catch (error) {
     console.error("AI Analysis Failed", error);
