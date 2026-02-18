@@ -9,7 +9,6 @@ import { TransactionType, ValidationResult, ApiResponse } from '../types';
  */
 const toUrlSafeBase64 = (obj: any): string => {
   const str = JSON.stringify(obj);
-  // encodeURIComponent maneja caracteres UTF-8, unescape/btoa lo convierte a base64
   const base64 = btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
     return String.fromCharCode(parseInt(p1, 16));
   }));
@@ -47,14 +46,13 @@ export const runFullValidationProcess = async (files: File[]): Promise<any> => {
 
   const allResults = [...syntaxResults, ...coherenceResults];
   
-  // PODA AGRESIVA: Solo enviamos errores y advertencias en la URL para ahorrar espacio
   const issuesOnly = allResults.filter(r => r.status !== 'valid');
   const errors = allResults.filter(r => r.status === 'invalid').length;
   const warnings = allResults.filter(r => r.status === 'warning').length;
 
-  const baseUrl = window.location.href.split('?')[0];
+  // Limpiamos la URL actual para asegurar que reportUrl apunte a la raíz de la app
+  const baseUrl = window.location.origin + window.location.pathname;
   
-  // Payload minimalista v1.2
   const reportPayload = {
     v: "1.2",
     meta: {
@@ -63,12 +61,10 @@ export const runFullValidationProcess = async (files: File[]): Promise<any> => {
         w: warnings,
         t: new Date().toISOString()
     },
-    // Solo enviamos lo que realmente se visualiza
     results: issuesOnly, 
     aggregated: aggregated,
     summary: summary, 
     discounts: discountBreakdown,
-    // Solo lo esencial para la línea de tiempo
     ops: sortedSales.map(s => ({ 
       n: s.fileName, 
       h: { 
