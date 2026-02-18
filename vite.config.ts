@@ -1,22 +1,23 @@
 
 import { defineConfig } from 'vite';
 import { Buffer } from 'node:buffer';
+import zlib from 'node:zlib';
 import { identifyTransactionType, parse11004, parse11008, parseSystemEvent } from './utils/parser';
 import { aggregateSales, generateDiscountBreakdown, validateCoherence } from './utils/validator';
 import { validateSyntaxAndSemantics } from './utils/syntaxValidator';
 import { TransactionType } from './types';
 
 /**
- * Codificación Base64 segura para URLs compatible con App.tsx
+ * Comprime y codifica el objeto en un formato seguro para URL (Gzip + Base64Url)
+ * Esto reduce el tamaño de la URL hasta en un 80%, evitando errores 400 del servidor.
  */
-function toUrlSafeBase64(obj: any): string {
-  const str = JSON.stringify(obj);
-  // Simular el comportamiento de btoa(encodeURIComponent(str)...) del navegador
-  const utf8Str = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => {
-    return String.fromCharCode(parseInt(p1, 16));
-  });
-  const base64 = Buffer.from(utf8Str, 'binary').toString('base64');
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function encodeReport(obj: any): string {
+  const json = JSON.stringify(obj);
+  const compressed = zlib.gzipSync(Buffer.from(json, 'utf-8'));
+  return compressed.toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }
 
 /**
@@ -111,24 +112,24 @@ export default defineConfig({
               const errorsCount = allResults.filter(r => r.status === 'invalid').length;
               const warningsCount = allResults.filter(r => r.status === 'warning').length;
 
-              // Generar Report URL
+              // Generar Report URL con Payload Minificado
               const host = req.headers.host || 'localhost:5001';
               const protocol = req.headers['x-forwarded-proto'] || 'http';
               const baseUrl = `${protocol}://${host}/`;
 
-              const reportPayload = {
-                v: "1.2",
-                meta: {
+              const minifiedPayload = {
+                v: "1.3", // Versión Gzip
+                m: { // Meta
                     f: uploadedFiles.length,
                     e: errorsCount,
                     w: warningsCount,
-                    t: new Date().toISOString()
+                    t: Date.now()
                 },
-                results: issuesOnly, 
-                aggregated: aggregated,
-                summary: summary, 
-                discounts: discountBreakdown,
-                ops: sortedSales.map(s => ({ 
+                r: issuesOnly, // Solo discrepancias para ahorrar espacio
+                a: aggregated, 
+                s: summary,    
+                d: discountBreakdown, 
+                o: sortedSales.map(s => ({ 
                   n: s.fileName, 
                   h: { 
                       NUM_TICKET: s.header.NUM_TICKET, 
@@ -139,7 +140,7 @@ export default defineConfig({
                 }))
               };
 
-              const reportUrl = `${baseUrl}?api_report=${toUrlSafeBase64(reportPayload)}`;
+              const reportUrl = `${baseUrl}?api_report=${encodeReport(minifiedPayload)}`;
 
               res.statusCode = 200;
               res.setHeader('Content-Type', 'application/json');
@@ -154,7 +155,7 @@ export default defineConfig({
                 },
                 results: allResults,
                 reportUrl,
-                serverInfo: "SAVIA Native Backend (Vite-Node Middleware)"
+                serverInfo: "SAVIA Native Backend (Vite-Node Compressed)"
               }));
 
             } catch (error: any) {

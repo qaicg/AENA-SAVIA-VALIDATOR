@@ -5,9 +5,11 @@ import { validateSyntaxAndSemantics } from './syntaxValidator';
 import { TransactionType, ValidationResult, ApiResponse } from '../types';
 
 /**
- * Codificación Base64 segura para UTF-8 y URLs.
+ * Codificación de reportes (Lado cliente - Playground)
+ * Nota: En el cliente no usamos compresión Gzip directamente para simplificar el Playground
+ * pero minificamos claves para consistencia.
  */
-const toUrlSafeBase64 = (obj: any): string => {
+const encodeReportForUrl = (obj: any): string => {
   const str = JSON.stringify(obj);
   const base64 = btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
     return String.fromCharCode(parseInt(p1, 16));
@@ -52,19 +54,20 @@ export const runFullValidationProcess = async (files: File[]): Promise<any> => {
 
   const baseUrl = window.location.origin + window.location.pathname;
   
-  const reportPayload = {
-    v: "1.2",
-    meta: {
+  // Usar el nuevo mapeo minificado
+  const minifiedPayload = {
+    v: "1.2-legacy", // Marcamos como legacy para App.tsx si no está comprimido
+    m: {
         f: files.length,
         e: errors,
         w: warnings,
-        t: new Date().toISOString()
+        t: Date.now()
     },
-    results: issuesOnly, 
-    aggregated: aggregated,
-    summary: summary, 
-    discounts: discountBreakdown,
-    ops: sortedSales.map(s => ({ 
+    r: issuesOnly, 
+    a: aggregated,
+    s: summary, 
+    d: discountBreakdown,
+    o: sortedSales.map(s => ({ 
       n: s.fileName, 
       h: { 
           NUM_TICKET: s.header.NUM_TICKET, 
@@ -75,8 +78,7 @@ export const runFullValidationProcess = async (files: File[]): Promise<any> => {
     }))
   };
 
-  const encodedData = toUrlSafeBase64(reportPayload);
-  const reportUrl = `${baseUrl}?api_report=${encodedData}`;
+  const reportUrl = `${baseUrl}?api_report=${encodeReportForUrl(minifiedPayload)}`;
 
   return {
     certified: errors === 0,

@@ -25,20 +25,33 @@ type ViewMode = 'upload' | 'dashboard' | 'api';
 type ResultTab = 'overview' | 'matrix' | 'ops' | 'finance';
 
 /**
- * Decodificación Base64 segura para UTF-8.
+ * Descompresión y decodificación de reportes API (v1.3 con Gzip)
  */
-const fromUrlSafeBase64 = (base64: string): any => {
-  // Restaurar caracteres de base64 estándar
-  let normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
-  while (normalized.length % 4) normalized += '=';
-  
-  const binary = atob(normalized);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return JSON.parse(decodeURIComponent(Array.from(bytes).map(b => '%' + b.toString(16).padStart(2, '0')).join('')));
-};
+async function decodeReportData(base64: string): Promise<any> {
+    const normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
+    const binary = atob(normalized);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+
+    try {
+        // Usar DecompressionStream nativa del navegador
+        const ds = new DecompressionStream('gzip');
+        const writer = ds.writable.getWriter();
+        writer.write(bytes);
+        writer.close();
+        
+        const response = new Response(ds.readable);
+        const json = await response.json();
+        return json;
+    } catch (e) {
+        // Fallback para versiones antiguas (v1.2 sin gzip)
+        console.warn("Decompression failed, trying fallback to plain JSON...");
+        const decoded = decodeURIComponent(Array.from(bytes).map(b => '%' + b.toString(16).padStart(2, '0')).join(''));
+        return JSON.parse(decoded);
+    }
+}
 
 function App() {
   const [activeView, setActiveView] = useState<ViewMode>('upload');
@@ -57,47 +70,58 @@ function App() {
   const [isValidated, setIsValidated] = useState(false);
   const [isApiReportView, setIsApiReportView] = useState(false);
 
-  // --- DEEP LINK HYDRATION LOGIC (V1.2 Optimizado) ---
+  // --- DEEP LINK HYDRATION LOGIC (V1.3 con GZIP y Mapeo) ---
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const reportData = params.get('api_report');
-    
-    if (reportData) {
-      try {
-        const decoded = fromUrlSafeBase64(reportData);
-        console.log("Hydrating from API report V1.2:", decoded);
+    const hydrate = async () => {
+        const params = new URLSearchParams(window.location.search);
+        const reportData = params.get('api_report');
         
-        // Si no hay errores en el payload y el meta dice que hubo 0 errores, inyectamos un resultado de éxito
-        const results = decoded.results || [];
-        if (results.length === 0 && decoded.meta?.e === 0) {
-            results.push({ 
-                status: 'valid', 
-                message: 'Validación completada con éxito. Todos los archivos cumplen la normativa SAVIA.' 
-            });
-        }
-        setValidationResults(results);
-        setAggregatedData(decoded.aggregated || null);
-        setSummaryFile(decoded.summary || null);
-        setDiscountBreakdown(decoded.discounts || []);
+        if (reportData) {
+          try {
+            const decoded = await decodeReportData(reportData);
+            console.log("Hydrating from API report:", decoded);
+            
+            // Mapeo de claves minificadas (m=meta, r=results, a=aggregated, s=summary, d=discounts, o=ops)
+            const isMinified = !!decoded.m;
+            const results = isMinified ? (decoded.r || []) : (decoded.results || []);
+            const meta = isMinified ? decoded.m : decoded.meta;
+            const agg = isMinified ? decoded.a : decoded.aggregated;
+            const sum = isMinified ? decoded.s : decoded.summary;
+            const disc = isMinified ? decoded.d : decoded.discounts;
+            const ops = isMinified ? decoded.o : decoded.ops;
 
-        if (decoded.ops) {
-            setSalesFiles(decoded.ops.map((s: any) => ({
-                fileName: s.n,
-                header: s.h,
-                items: [], taxes: [], payments: [], rawContent: ""
-            })));
-        }
+            if (results.length === 0 && meta?.e === 0) {
+                results.push({ 
+                    status: 'valid', 
+                    message: 'Auditoría superada: Todos los archivos cumplen la normativa SAVIA.' 
+                });
+            }
 
-        setFilesLoaded((decoded.ops?.map((s:any)=>({ name: s.n, type: 'Loaded via API' })) || []));
-        
-        setIsApiReportView(true);
-        setIsValidated(true);
-        setActiveView('dashboard');
-      } catch (e) {
-        console.error("Invalid report link", e);
-        setError("El enlace de reporte no es válido, está corrupto o es demasiado largo para este navegador.");
-      }
-    }
+            setValidationResults(results);
+            setAggregatedData(agg || null);
+            setSummaryFile(sum || null);
+            setDiscountBreakdown(disc || []);
+
+            if (ops) {
+                setSalesFiles(ops.map((s: any) => ({
+                    fileName: s.n,
+                    header: s.h,
+                    items: [], taxes: [], payments: [], rawContent: ""
+                })));
+            }
+
+            setFilesLoaded((ops?.map((s:any)=>({ name: s.n, type: 'Loaded via API' })) || []));
+            
+            setIsApiReportView(true);
+            setIsValidated(true);
+            setActiveView('dashboard');
+          } catch (e) {
+            console.error("Invalid report link", e);
+            setError("No se pudo cargar el reporte. Es posible que el enlace esté corrupto o incompleto.");
+          }
+        }
+    };
+    hydrate();
   }, []);
 
   const handleFilesSelected = async (fileList: FileList) => {
