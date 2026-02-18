@@ -50,7 +50,6 @@ export const runFullValidationProcess = async (files: File[]): Promise<any> => {
   const errors = allResults.filter(r => r.status === 'invalid').length;
   const warnings = allResults.filter(r => r.status === 'warning').length;
 
-  // Limpiamos la URL actual para asegurar que reportUrl apunte a la raíz de la app
   const baseUrl = window.location.origin + window.location.pathname;
   
   const reportPayload = {

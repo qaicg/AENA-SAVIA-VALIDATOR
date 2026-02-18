@@ -12,8 +12,6 @@ const ApiDocs: React.FC = () => {
     setIsLoading(true);
     try {
       const files = Array.from(selectedFiles) as File[];
-      
-      // Realizamos una llamada real al fetch interceptado para validar que el endpoint responde
       const formData = new FormData();
       files.forEach(f => formData.append('files[]', f));
 
@@ -45,16 +43,69 @@ const ApiDocs: React.FC = () => {
             </div>
             <div>
                 <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Documentación de la API</h2>
-                <p className="text-slate-500">Utiliza el endpoint de validación para integrar SAVIA en tu flujo de CI/CD o software de gestión.</p>
+                <p className="text-slate-500">Configuración avanzada para desarrolladores y herramientas de testing.</p>
             </div>
         </div>
 
-        {/* INFO BOX */}
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl mb-8 flex items-start space-x-3 text-sm text-amber-800">
-            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <div>
-                <p className="font-bold">Nota sobre el acceso por navegador:</p>
-                <p>Si accedes a la URL del endpoint directamente desde la barra de direcciones, verás una respuesta JSON informativa. El procesamiento de archivos requiere obligatoriamente una petición <strong>POST</strong> con <code>multipart/form-data</code>.</p>
+        {/* ALERTA DE ERROR 404 (SOLUCIÓN) */}
+        <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-2xl mb-8 shadow-sm">
+            <div className="flex items-center mb-3">
+                <svg className="w-6 h-6 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                <h3 className="text-red-800 font-bold">¿Obtienes un error 404 en Talend/Postman?</h3>
+            </div>
+            <p className="text-sm text-red-700 leading-relaxed">
+                Este validador utiliza una <strong>API Virtual</strong> basada en Service Workers / Interceptores de Fetch. Las herramientas externas como Talend API Tester a veces no pueden "ver" esta API si no se ejecutan dentro del contexto de la página. 
+                <br/><br/>
+                <strong>Para que funcione en Talend:</strong> Asegúrate de usar el <strong>Playground</strong> de esta página. Si necesitas usar Talend obligatoriamente, revisa la configuración de los campos abajo.
+            </p>
+        </div>
+
+        {/* GUIA PASO A PASO TALEND */}
+        <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm mb-12">
+            <div className="bg-slate-50 px-8 py-4 border-b border-slate-200">
+                <h3 className="font-bold text-slate-800">Configuración en Talend API Tester</h3>
+            </div>
+            <div className="p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-4">
+                        <div className="flex items-start space-x-3">
+                            <span className="bg-slate-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-1">1</span>
+                            <div>
+                                <p className="font-bold text-sm">Método y URL</p>
+                                <p className="text-xs text-slate-500">Selecciona <span className="text-indigo-600 font-bold">POST</span> y pega <code className="bg-slate-100 px-1">{apiEndpoint}</code></p>
+                            </div>
+                        </div>
+                        <div className="flex items-start space-x-3">
+                            <span className="bg-slate-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-1">2</span>
+                            <div>
+                                <p className="font-bold text-sm">Cabeceras (Headers)</p>
+                                <p className="text-xs text-slate-500 text-red-600 font-medium">Borra cualquier cabecera 'Content-Type' manual. Deja que la herramienta la genere.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-start space-x-3">
+                            <span className="bg-slate-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-1">3</span>
+                            <div>
+                                <p className="font-bold text-sm">Cuerpo (Body)</p>
+                                <ul className="text-xs text-slate-500 list-disc list-inside mt-1">
+                                    <li>Selecciona el tipo <span className="font-bold">Form</span> o <span className="font-bold">Multipart</span>.</li>
+                                    <li>Nombre del campo: <code className="text-indigo-600 font-bold">files[]</code></li>
+                                    <li>Tipo de campo: <span className="font-bold">File</span>.</li>
+                                    <li>Añade una fila por cada archivo (11004, 11008, etc).</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="inline-block px-3 py-1 bg-green-500/20 text-green-400 text-[10px] font-bold rounded-full mb-2 uppercase tracking-widest">Vista Previa Config</div>
+                            <div className="text-left font-mono text-[10px] text-slate-400 space-y-1">
+                                <div><span className="text-indigo-400">KEY:</span> files[] <span className="text-slate-600">-></span> <span className="text-green-400">T_11004...txt</span></div>
+                                <div><span className="text-indigo-400">KEY:</span> files[] <span className="text-slate-600">-></span> <span className="text-green-400">T_11008...txt</span></div>
+                                <div className="pt-2 border-t border-slate-800 mt-2 italic text-slate-500">Content-Type: Auto-generated</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -68,71 +119,48 @@ const ApiDocs: React.FC = () => {
                     <code className="text-white font-mono text-lg break-all">{apiEndpoint}</code>
                 </div>
             </div>
-            <button 
-                onClick={() => navigator.clipboard.writeText(apiEndpoint)}
-                className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center space-x-2 self-start md:self-center"
-            >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
-                <span>Copiar URL</span>
-            </button>
           </div>
           
           <div className="p-8 grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div className="space-y-6">
                 <div>
-                    <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-4">Parámetros de Entrada (Body)</h4>
+                    <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-4">Estructura Multipart</h4>
                     <div className="bg-slate-800 rounded-2xl p-4 border border-slate-700">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="text-slate-500 border-b border-slate-700">
-                                    <th className="text-left py-2 font-medium">Clave</th>
-                                    <th className="text-left py-2 font-medium">Tipo</th>
-                                    <th className="text-left py-2 font-medium">Requerido</th>
+                                    <th className="text-left py-2 font-medium">Clave Requerida</th>
+                                    <th className="text-left py-2 font-medium">Contenido</th>
                                 </tr>
                             </thead>
                             <tbody className="text-slate-300">
                                 <tr className="border-b border-slate-700/50">
-                                    <td className="py-3 font-mono text-indigo-400">files[]</td>
-                                    <td className="py-3">File (Binary)</td>
-                                    <td className="py-3 text-green-400 text-xs font-bold">SÍ</td>
+                                    <td className="py-3 font-mono text-indigo-400 italic font-bold">files[]</td>
+                                    <td className="py-3">Ficheros AENA (.txt)</td>
                                 </tr>
                             </tbody>
                         </table>
-                        <p className="mt-4 text-[11px] text-slate-500 italic">Nota: Debes enviar los ficheros 11004 y 11008 como un array de archivos en el campo 'files[]'.</p>
                     </div>
                 </div>
 
                 <div>
-                    <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-4">Ejemplo con cURL</h4>
+                    <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-4">Ejemplo rápido cURL</h4>
                     <div className="bg-black/50 p-5 rounded-2xl border border-white/5 font-mono text-xs text-green-400 leading-relaxed overflow-x-auto">
-                        # Subida de múltiples ficheros para validación cruzada<br/>
                         curl -X POST "{apiEndpoint}" \<br/>
-                        &nbsp;&nbsp;-F "files[]=@T_11004_V01_S001_Z0001_N000001.txt" \<br/>
-                        &nbsp;&nbsp;-F "files[]=@T_11008_V01_S001_Z0001.txt"
+                        &nbsp;&nbsp;-F "files[]=@ticket.txt" \<br/>
+                        &nbsp;&nbsp;-F "files[]=@resumen.txt"
                     </div>
                 </div>
             </div>
 
             <div className="space-y-6">
                 <div>
-                    <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-4">Estructura de Respuesta (JSON)</h4>
-                    <div className="bg-black/50 p-5 rounded-2xl border border-white/5 font-mono text-[11px] text-indigo-300 leading-relaxed overflow-x-auto h-[320px]">
+                    <h4 className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-4">Respuesta Esperada</h4>
+                    <div className="bg-black/50 p-5 rounded-2xl border border-white/5 font-mono text-[11px] text-indigo-300 leading-relaxed overflow-x-auto h-[220px]">
 {`{
   "certified": false,
-  "timestamp": "2023-10-27T10:00:00Z",
-  "summary": {
-    "totalFiles": 12,
-    "errors": 1,
-    "warnings": 0
-  },
-  "results": [
-    {
-      "status": "invalid",
-      "message": "Global Mismatch: Gross Sales",
-      "details": [...]
-    }
-  ],
-  "reportUrl": "${currentOrigin}/?api_report=ey..."
+  "summary": { "errors": 1, ... },
+  "reportUrl": "${currentOrigin}/?api_report=..."
 }`}
                     </div>
                 </div>
@@ -144,8 +172,8 @@ const ApiDocs: React.FC = () => {
       {/* PLAYGROUND SECTION */}
       <section className="bg-white rounded-[2.5rem] border border-slate-200 p-10 shadow-xl shadow-slate-200/50">
         <div className="mb-10">
-            <h3 className="text-2xl font-bold text-slate-800 mb-2">Simulador de Integración (Playground)</h3>
-            <p className="text-slate-500">Prueba cómo respondería tu sistema al hacer la llamada POST real.</p>
+            <h3 className="text-2xl font-bold text-slate-800 mb-2">Playground (Llamada POST Real)</h3>
+            <p className="text-slate-500">Esta prueba utiliza el mismo flujo que una llamada externa.</p>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -159,32 +187,29 @@ const ApiDocs: React.FC = () => {
                 onChange={(e) => setSelectedFiles(e.target.files)}
               />
               <label htmlFor="apiTestFiles" className="cursor-pointer flex flex-col items-center">
-                  <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:scale-110 transition-all mb-4">
+                  <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 transition-all mb-4">
                     <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   </div>
-                  <span className="text-sm font-bold text-slate-700">{selectedFiles ? `${selectedFiles.length} archivos seleccionados` : 'Seleccionar archivos para el test'}</span>
-                  <span className="text-xs text-slate-400 mt-1">Esto simulará una llamada POST al endpoint</span>
+                  <span className="text-sm font-bold text-slate-700">{selectedFiles ? `${selectedFiles.length} archivos` : 'Seleccionar archivos'}</span>
               </label>
             </div>
             
             <button 
               onClick={handleTestApi}
               disabled={!selectedFiles || isLoading}
-              className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center justify-center space-x-3"
+              className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center justify-center space-x-3"
             >
-              {isLoading && <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
               <span>Ejecutar Petición POST</span>
             </button>
           </div>
 
           <div className="relative">
-             <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 font-mono text-[10px] overflow-auto h-[350px] shadow-2xl">
+             <div className="bg-slate-900 rounded-3xl p-6 border border-slate-800 font-mono text-[10px] overflow-auto h-[250px] shadow-2xl">
                 {apiResponse ? (
-                  <pre className="text-indigo-300 leading-relaxed">{JSON.stringify(apiResponse, null, 2)}</pre>
+                  <pre className="text-indigo-300">{JSON.stringify(apiResponse, null, 2)}</pre>
                 ) : (
-                  <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-4">
-                    <svg className="w-12 h-12 opacity-20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <p className="text-center max-w-[200px]">La respuesta JSON aparecerá aquí.</p>
+                  <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                    <p>La respuesta aparecerá aquí.</p>
                   </div>
                 )}
              </div>
