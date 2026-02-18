@@ -1,6 +1,5 @@
 
 import { defineConfig } from 'vite';
-// Fix: Import Buffer from node:buffer to resolve TypeScript errors
 import { Buffer } from 'node:buffer';
 import { identifyTransactionType, parse11004, parse11008, parseSystemEvent } from './utils/parser';
 import { aggregateSales, generateDiscountBreakdown, validateCoherence } from './utils/validator';
@@ -8,8 +7,20 @@ import { validateSyntaxAndSemantics } from './utils/syntaxValidator';
 import { TransactionType } from './types';
 
 /**
+ * Codificación Base64 segura para URLs compatible con App.tsx
+ */
+function toUrlSafeBase64(obj: any): string {
+  const str = JSON.stringify(obj);
+  // Simular el comportamiento de btoa(encodeURIComponent(str)...) del navegador
+  const utf8Str = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => {
+    return String.fromCharCode(parseInt(p1, 16));
+  });
+  const base64 = Buffer.from(utf8Str, 'binary').toString('base64');
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
  * Parser minimalista para multipart/form-data 
- * Diseñado específicamente para archivos de texto AENA en el entorno de desarrollo.
  */
 async function parseMultipartData(req: any) {
   return new Promise<{ name: string, content: string }[]>((resolve, reject) => {
@@ -29,15 +40,11 @@ async function parseMultipartData(req: any) {
 
       parts.forEach(part => {
         if (part.includes('filename=')) {
-          // Extraer nombre del archivo
           const nameMatch = part.match(/filename="(.+?)"/);
           const name = nameMatch ? nameMatch[1] : 'file.txt';
-          
-          // Extraer contenido (después de los headers de la parte)
           const headerEndIndex = part.indexOf('\r\n\r\n');
           if (headerEndIndex !== -1) {
             let content = part.substring(headerEndIndex + 4);
-            // Quitar el salto de línea final antes del siguiente boundary
             content = content.substring(0, content.lastIndexOf('\r\n'));
             files.push({ name, content });
           }
@@ -64,7 +71,6 @@ export default defineConfig({
       name: 'aena-server-api',
       configureServer(server) {
         server.middlewares.use(async (req, res, next) => {
-          // Interceptar solo nuestra ruta de API y método POST
           if (req.url?.startsWith('/api/v1/validate') && req.method === 'POST') {
             try {
               const uploadedFiles = await parseMultipartData(req);
@@ -72,10 +78,9 @@ export default defineConfig({
               if (uploadedFiles.length === 0) {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
-                return res.end(JSON.stringify({ error: "No se han subido archivos. Asegúrate de usar el campo 'files[]' con archivos .txt" }));
+                return res.end(JSON.stringify({ error: "No files uploaded." }));
               }
 
-              // Reutilizar la lógica de negocio existente
               const sales: any[] = [];
               let summary: any = null;
               let start: any = null;
@@ -92,39 +97,65 @@ export default defineConfig({
               if (!summary || sales.length === 0) {
                 res.statusCode = 422;
                 res.setHeader('Content-Type', 'application/json');
-                return res.end(JSON.stringify({ 
-                    error: "Faltan archivos obligatorios para la validación.",
-                    details: "Se requiere al menos un fichero 11004 (Ventas) y el 11008 (Resumen Z)." 
-                }));
+                return res.end(JSON.stringify({ error: "Missing mandatory 11004 or 11008 files." }));
               }
 
-              // Ejecutar proceso de auditoría
               const sortedSales = [...sales].sort((a, b) => parseInt(a.header.NUM_TICKET) - parseInt(b.header.NUM_TICKET));
               const syntaxResults = validateSyntaxAndSemantics(sortedSales);
               const aggregated = aggregateSales(sortedSales);
               const coherenceResults = validateCoherence(aggregated, summary, start, end, sortedSales);
+              const discountBreakdown = generateDiscountBreakdown(sortedSales);
               
               const allResults = [...syntaxResults, ...coherenceResults];
-              const errors = allResults.filter(r => r.status === 'invalid').length;
-              const warnings = allResults.filter(r => r.status === 'warning').length;
+              const issuesOnly = allResults.filter(r => r.status !== 'valid');
+              const errorsCount = allResults.filter(r => r.status === 'invalid').length;
+              const warningsCount = allResults.filter(r => r.status === 'warning').length;
 
-              const responseBody = {
-                certified: errors === 0,
+              // Generar Report URL
+              const host = req.headers.host || 'localhost:5001';
+              const protocol = req.headers['x-forwarded-proto'] || 'http';
+              const baseUrl = `${protocol}://${host}/`;
+
+              const reportPayload = {
+                v: "1.2",
+                meta: {
+                    f: uploadedFiles.length,
+                    e: errorsCount,
+                    w: warningsCount,
+                    t: new Date().toISOString()
+                },
+                results: issuesOnly, 
+                aggregated: aggregated,
+                summary: summary, 
+                discounts: discountBreakdown,
+                ops: sortedSales.map(s => ({ 
+                  n: s.fileName, 
+                  h: { 
+                      NUM_TICKET: s.header.NUM_TICKET, 
+                      HORA_REAL: s.header.HORA_REAL, 
+                      TIPO_VENTA: s.header.TIPO_VENTA,
+                      IMPBRUTO_T: s.header.IMPBRUTO_T 
+                  } 
+                }))
+              };
+
+              const reportUrl = `${baseUrl}?api_report=${toUrlSafeBase64(reportPayload)}`;
+
+              res.statusCode = 200;
+              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.end(JSON.stringify({
+                certified: errorsCount === 0,
                 timestamp: new Date().toISOString(),
                 summary: {
                   totalFiles: uploadedFiles.length,
-                  errors,
-                  warnings
+                  errors: errorsCount,
+                  warnings: warningsCount
                 },
                 results: allResults,
+                reportUrl,
                 serverInfo: "SAVIA Native Backend (Vite-Node Middleware)"
-              };
-
-              // Responder al cliente
-              res.statusCode = 200;
-              res.setHeader('Content-Type', 'application/json');
-              res.setHeader('Access-Control-Allow-Origin', '*'); // Habilitar CORS para herramientas externas
-              res.end(JSON.stringify(responseBody));
+              }));
 
             } catch (error: any) {
               res.statusCode = 500;
