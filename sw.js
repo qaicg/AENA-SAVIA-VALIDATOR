@@ -10,9 +10,23 @@ self.addEventListener('fetch', (event) => {
       event.respondWith(handlePostRequest(event.request));
     } else if (event.request.method === 'GET') {
       event.respondWith(handleGetRequest());
+    } else if (event.request.method === 'OPTIONS') {
+      event.respondWith(handleOptionsRequest());
     }
   }
 });
+
+async function handleOptionsRequest() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Max-Age': '86400'
+    }
+  });
+}
 
 async function handleGetRequest() {
   const data = {
@@ -22,38 +36,40 @@ async function handleGetRequest() {
   };
   return new Response(JSON.stringify(data), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*'
+    }
   });
 }
 
 async function handlePostRequest(request) {
   try {
-    // Necesitamos pasar la pelota a la ventana principal porque allí está la lógica de validación
     const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     
     if (clients.length === 0) {
       return new Response(JSON.stringify({ error: "La aplicación debe estar abierta en una pestaña para procesar la API." }), {
         status: 503,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
       });
     }
 
-    // Leer el body (FormData)
     const formData = await request.formData();
     const filesData = [];
     
-    // Extraer archivos para enviarlos por mensaje
     for (const [key, value] of formData.entries()) {
       if (value instanceof File) {
         filesData.push({
           name: value.name,
-          content: await value.text(), // Enviamos el texto para simplificar el paso de mensaje
+          content: await value.text(),
           type: value.type
         });
       }
     }
 
-    // Enviar a la App y esperar respuesta
     const responsePromise = new Promise((resolve) => {
       const channel = new MessageChannel();
       channel.port1.onmessage = (event) => resolve(event.data);
@@ -77,10 +93,15 @@ async function handlePostRequest(request) {
   } catch (error) {
     return new Response(JSON.stringify({ error: "Service Worker Error: " + error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     });
   }
 }
 
 self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', () => self.clients.claim());
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});

@@ -54,9 +54,9 @@ const ApiDocs: React.FC = () => {
                 <h3 className="text-red-800 font-bold">¿Obtienes un error 404 en Talend/Postman?</h3>
             </div>
             <p className="text-sm text-red-700 leading-relaxed">
-                Este validador utiliza una <strong>API Virtual</strong> basada en Service Workers / Interceptores de Fetch. Las herramientas externas como Talend API Tester a veces no pueden "ver" esta API si no se ejecutan dentro del contexto de la página. 
+                Este validador utiliza una <strong>API Virtual</strong> basada en Service Workers. Las herramientas externas a veces no pueden "ver" esta API si no se ejecutan dentro del navegador donde la página está abierta. 
                 <br/><br/>
-                <strong>Para que funcione en Talend:</strong> Asegúrate de usar el <strong>Playground</strong> de esta página. Si necesitas usar Talend obligatoriamente, revisa la configuración de los campos abajo.
+                <strong>Para que funcione en Talend:</strong> Asegúrate de usar el <strong>Playground</strong> de esta página o asegúrate de que Talend esté instalado como extensión del navegador y la pestaña de la App esté activa.
             </p>
         </div>
 
@@ -79,7 +79,7 @@ const ApiDocs: React.FC = () => {
                             <span className="bg-slate-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 mt-1">2</span>
                             <div>
                                 <p className="font-bold text-sm">Cabeceras (Headers)</p>
-                                <p className="text-xs text-slate-500 text-red-600 font-medium">Borra cualquier cabecera 'Content-Type' manual. Deja que la herramienta la genere.</p>
+                                <p className="text-xs text-slate-500 text-red-600 font-medium">Borra cualquier cabecera 'Content-Type' manual.</p>
                             </div>
                         </div>
                         <div className="flex items-start space-x-3">
@@ -90,7 +90,6 @@ const ApiDocs: React.FC = () => {
                                     <li>Selecciona el tipo <span className="font-bold">Form</span> o <span className="font-bold">Multipart</span>.</li>
                                     <li>Nombre del campo: <code className="text-indigo-600 font-bold">files[]</code></li>
                                     <li>Tipo de campo: <span className="font-bold">File</span>.</li>
-                                    <li>Añade una fila por cada archivo (11004, 11008, etc).</li>
                                 </ul>
                             </div>
                         </div>
@@ -99,8 +98,8 @@ const ApiDocs: React.FC = () => {
                         <div className="text-center">
                             <div className="inline-block px-3 py-1 bg-green-500/20 text-green-400 text-[10px] font-bold rounded-full mb-2 uppercase tracking-widest">Vista Previa Config</div>
                             <div className="text-left font-mono text-[10px] text-slate-400 space-y-1">
-                                <div><span className="text-indigo-400">KEY:</span> files[] <span className="text-slate-600">-></span> <span className="text-green-400">T_11004...txt</span></div>
-                                <div><span className="text-indigo-400">KEY:</span> files[] <span className="text-slate-600">-></span> <span className="text-green-400">T_11008...txt</span></div>
+                                <div><span className="text-indigo-400">KEY:</span> files[] <span className="text-slate-600">{"->"}</span> <span className="text-green-400">T_11004...txt</span></div>
+                                <div><span className="text-indigo-400">KEY:</span> files[] <span className="text-slate-600">{"->"}</span> <span className="text-green-400">T_11008...txt</span></div>
                                 <div className="pt-2 border-t border-slate-800 mt-2 italic text-slate-500">Content-Type: Auto-generated</div>
                             </div>
                         </div>
@@ -173,7 +172,7 @@ const ApiDocs: React.FC = () => {
       <section className="bg-white rounded-[2.5rem] border border-slate-200 p-10 shadow-xl shadow-slate-200/50">
         <div className="mb-10">
             <h3 className="text-2xl font-bold text-slate-800 mb-2">Playground (Llamada POST Real)</h3>
-            <p className="text-slate-500">Esta prueba utiliza el mismo flujo que una llamada externa.</p>
+            <p className="text-slate-500">Prueba la API sin salir de esta herramienta.</p>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
