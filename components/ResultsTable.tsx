@@ -4,6 +4,7 @@ import { ValidationResult } from '../types';
 
 interface ResultsTableProps {
   results: ValidationResult[];
+  isExternalReport?: boolean;
 }
 
 // Helper to generate detailed explanations based on error context
@@ -243,7 +244,7 @@ const ResultRow: React.FC<{ res: ValidationResult }> = ({ res }) => {
   );
 };
 
-const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
+const ResultsTable: React.FC<ResultsTableProps> = ({ results, isExternalReport }) => {
   if (results.length === 0) return (
       <div className="p-8 text-center text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
           No validation results available. Run a validation to see the report.
@@ -251,16 +252,30 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results }) => {
   );
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Audit Log</span>
-          <span className="text-xs text-gray-400">{results.length} Events</span>
-      </div>
-      <ul className="divide-y divide-gray-100">
-        {results.map((res, idx) => (
-            <ResultRow key={idx} res={res} />
-        ))}
-      </ul>
+    <div className="space-y-4">
+        {isExternalReport && results.some(r => r.status === 'valid') === false && (
+            <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-start space-x-3">
+                <svg className="w-5 h-5 text-blue-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="text-xs text-blue-700">
+                    <p className="font-bold mb-1">Nota de Auditoría</p>
+                    <p>Este reporte externo muestra únicamente las discrepancias detectadas. Todas las demás comprobaciones de sintaxis y coherencia cruzada han sido superadas con éxito.</p>
+                </div>
+            </div>
+        )}
+        
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Audit Log</span>
+                <span className="text-xs text-gray-400">{results.length} Events</span>
+            </div>
+            <ul className="divide-y divide-gray-100">
+                {results.map((res, idx) => (
+                    <ResultRow key={idx} res={res} />
+                ))}
+            </ul>
+        </div>
     </div>
   );
 };

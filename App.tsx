@@ -24,6 +24,22 @@ const IconCode = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" 
 type ViewMode = 'upload' | 'dashboard' | 'api';
 type ResultTab = 'overview' | 'matrix' | 'ops' | 'finance';
 
+/**
+ * Decodificación Base64 segura para UTF-8.
+ */
+const fromUrlSafeBase64 = (base64: string): any => {
+  // Restaurar caracteres de base64 estándar
+  let normalized = base64.replace(/-/g, '+').replace(/_/g, '/');
+  while (normalized.length % 4) normalized += '=';
+  
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return JSON.parse(decodeURIComponent(Array.from(bytes).map(b => '%' + b.toString(16).padStart(2, '0')).join('')));
+};
+
 function App() {
   const [activeView, setActiveView] = useState<ViewMode>('upload');
   const [activeTab, setActiveTab] = useState<ResultTab>('overview');
@@ -41,52 +57,45 @@ function App() {
   const [isValidated, setIsValidated] = useState(false);
   const [isApiReportView, setIsApiReportView] = useState(false);
 
-  // --- DEEP LINK HYDRATION LOGIC (V1.1) ---
+  // --- DEEP LINK HYDRATION LOGIC (V1.2 Optimizado) ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const reportData = params.get('api_report');
     
     if (reportData) {
       try {
-        const decoded = JSON.parse(atob(decodeURIComponent(reportData)));
-        console.log("Hydrating from API report V1.1:", decoded);
+        const decoded = fromUrlSafeBase64(reportData);
+        console.log("Hydrating from API report V1.2:", decoded);
         
-        // 1. Resultados de validación y KPIs
-        setValidationResults(decoded.results || []);
+        // Si no hay errores en el payload y el meta dice que hubo 0 errores, inyectamos un resultado de éxito
+        const results = decoded.results || [];
+        if (results.length === 0 && decoded.meta?.e === 0) {
+            results.push({ 
+                status: 'valid', 
+                message: 'Validación completada con éxito. Todos los archivos cumplen la normativa SAVIA.' 
+            });
+        }
+        setValidationResults(results);
         setAggregatedData(decoded.aggregated || null);
-        
-        // 2. Restaurar el SummaryFile para la Matrix
-        if (decoded.summaryFile) {
-            setSummaryFile(decoded.summaryFile);
-        }
+        setSummaryFile(decoded.summary || null);
+        setDiscountBreakdown(decoded.discounts || []);
 
-        // 3. Restaurar el DiscountBreakdown para Finance
-        if (decoded.discountBreakdown) {
-            setDiscountBreakdown(decoded.discountBreakdown);
-        }
-
-        // 4. Reconstruir salesFiles mínimos para la pestaña Ops
-        if (decoded.salesMinimal) {
-            const reconstructedSales = decoded.salesMinimal.map((s: any) => ({
-                fileName: s.fileName,
-                header: s.header,
-                // Estos campos estarán vacíos en vista report pero permiten que Ops no rompa
+        if (decoded.ops) {
+            setSalesFiles(decoded.ops.map((s: any) => ({
+                fileName: s.n,
+                header: s.h,
                 items: [], taxes: [], payments: [], rawContent: ""
-            }));
-            setSalesFiles(reconstructedSales);
+            })));
         }
 
-        setFilesLoaded((decoded.fileNames || decoded.salesMinimal?.map((s:any)=>s.fileName) || []).map((name: string) => ({ 
-          name, 
-          type: name.includes('11004') ? 'Sales' : 'Summary' 
-        })));
+        setFilesLoaded((decoded.ops?.map((s:any)=>({ name: s.n, type: 'Loaded via API' })) || []));
         
         setIsApiReportView(true);
         setIsValidated(true);
         setActiveView('dashboard');
       } catch (e) {
         console.error("Invalid report link", e);
-        setError("El enlace de reporte no es válido o está incompleto.");
+        setError("El enlace de reporte no es válido, está corrupto o es demasiado largo para este navegador.");
       }
     }
   }, []);
@@ -328,7 +337,7 @@ function App() {
                               ))}
                            </nav></div>
                            <div className="p-6">
-                              {activeTab === 'overview' && <ResultsTable results={validationResults} />}
+                              {activeTab === 'overview' && <ResultsTable results={validationResults} isExternalReport={isApiReportView} />}
                               {activeTab === 'matrix' && <SubfamilyCoherenceMatrix calculated={aggregatedData} summary={summaryFile} files={salesFiles} />}
                               {activeTab === 'ops' && <SequenceTimeAnalysis files={salesFiles} />}
                               {activeTab === 'finance' && <DiscountBreakdown data={discountBreakdown} />}

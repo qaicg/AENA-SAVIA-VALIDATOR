@@ -5,6 +5,18 @@ import { validateSyntaxAndSemantics } from './syntaxValidator';
 import { TransactionType, ValidationResult, ApiResponse } from '../types';
 
 /**
+ * Codificación Base64 segura para UTF-8 y URLs.
+ */
+const toUrlSafeBase64 = (obj: any): string => {
+  const str = JSON.stringify(obj);
+  // encodeURIComponent maneja caracteres UTF-8, unescape/btoa lo convierte a base64
+  const base64 = btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+    return String.fromCharCode(parseInt(p1, 16));
+  }));
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+
+/**
  * Procesa una lista de archivos y devuelve el resultado completo de la validación.
  */
 export const runFullValidationProcess = async (files: File[]): Promise<any> => {
@@ -34,35 +46,42 @@ export const runFullValidationProcess = async (files: File[]): Promise<any> => {
   const discountBreakdown = generateDiscountBreakdown(sortedSales);
 
   const allResults = [...syntaxResults, ...coherenceResults];
+  
+  // PODA AGRESIVA: Solo enviamos errores y advertencias en la URL para ahorrar espacio
+  const issuesOnly = allResults.filter(r => r.status !== 'valid');
   const errors = allResults.filter(r => r.status === 'invalid').length;
   const warnings = allResults.filter(r => r.status === 'warning').length;
 
   const baseUrl = window.location.href.split('?')[0];
   
-  // Codificamos un estado COMPLETO para reconstruir todas las pestañas
+  // Payload minimalista v1.2
   const reportPayload = {
-    v: "1.1",
-    summary: {
-      totalFiles: files.length,
-      errors,
-      warnings,
-      certified: errors === 0,
-      timestamp: new Date().toISOString()
+    v: "1.2",
+    meta: {
+        f: files.length,
+        e: errors,
+        w: warnings,
+        t: new Date().toISOString()
     },
-    results: allResults,
+    // Solo enviamos lo que realmente se visualiza
+    results: issuesOnly, 
     aggregated: aggregated,
-    // Datos necesarios para Matrix, Ops y Finance:
-    summaryFile: summary, 
-    discountBreakdown: discountBreakdown,
-    // Para Ops/Secuencia solo necesitamos las cabeceras, no todo el contenido raw
-    salesMinimal: sortedSales.map(s => ({ 
-      fileName: s.fileName, 
-      header: s.header 
+    summary: summary, 
+    discounts: discountBreakdown,
+    // Solo lo esencial para la línea de tiempo
+    ops: sortedSales.map(s => ({ 
+      n: s.fileName, 
+      h: { 
+          NUM_TICKET: s.header.NUM_TICKET, 
+          HORA_REAL: s.header.HORA_REAL, 
+          TIPO_VENTA: s.header.TIPO_VENTA,
+          IMPBRUTO_T: s.header.IMPBRUTO_T 
+      } 
     }))
   };
 
-  const encodedData = btoa(JSON.stringify(reportPayload));
-  const reportUrl = `${baseUrl}?api_report=${encodeURIComponent(encodedData)}`;
+  const encodedData = toUrlSafeBase64(reportPayload);
+  const reportUrl = `${baseUrl}?api_report=${encodedData}`;
 
   return {
     certified: errors === 0,
