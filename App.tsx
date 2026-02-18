@@ -20,6 +20,7 @@ const IconCheck = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24"
 const IconTrash = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
 const IconSparkles = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
 const IconCode = () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>;
+const IconSearch = () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>;
 
 type ViewMode = 'upload' | 'dashboard' | 'api';
 type ResultTab = 'overview' | 'matrix' | 'ops' | 'finance';
@@ -36,7 +37,6 @@ async function decodeReportData(base64: string): Promise<any> {
     }
 
     try {
-        // Usar DecompressionStream nativa del navegador
         const ds = new DecompressionStream('gzip');
         const writer = ds.writable.getWriter();
         writer.write(bytes);
@@ -46,7 +46,6 @@ async function decodeReportData(base64: string): Promise<any> {
         const json = await response.json();
         return json;
     } catch (e) {
-        // Fallback para versiones antiguas (v1.2 sin gzip)
         console.warn("Decompression failed, trying fallback to plain JSON...");
         const decoded = decodeURIComponent(Array.from(bytes).map(b => '%' + b.toString(16).padStart(2, '0')).join(''));
         return JSON.parse(decoded);
@@ -69,8 +68,9 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isValidated, setIsValidated] = useState(false);
   const [isApiReportView, setIsApiReportView] = useState(false);
+  const [inspectingFile, setInspectingFile] = useState<SingleFileInspection | null>(null);
 
-  // --- DEEP LINK HYDRATION LOGIC (V1.3 con GZIP y Mapeo) ---
+  // --- DEEP LINK HYDRATION LOGIC ---
   useEffect(() => {
     const hydrate = async () => {
         const params = new URLSearchParams(window.location.search);
@@ -79,9 +79,6 @@ function App() {
         if (reportData) {
           try {
             const decoded = await decodeReportData(reportData);
-            console.log("Hydrating from API report:", decoded);
-            
-            // Mapeo de claves minificadas (m=meta, r=results, a=aggregated, s=summary, d=discounts, o=ops)
             const isMinified = !!decoded.m;
             const results = isMinified ? (decoded.r || []) : (decoded.results || []);
             const meta = isMinified ? decoded.m : decoded.meta;
@@ -103,14 +100,14 @@ function App() {
             setDiscountBreakdown(disc || []);
 
             if (ops) {
-                setSalesFiles(ops.map((s: any) => ({
+                const hydratedSales = ops.map((s: any) => ({
                     fileName: s.n,
                     header: s.h,
                     items: [], taxes: [], payments: [], rawContent: ""
-                })));
+                }));
+                setSalesFiles(hydratedSales);
+                setFilesLoaded(hydratedSales.map((s: any) => ({ name: s.fileName, type: 'Sales', raw: s })));
             }
-
-            setFilesLoaded((ops?.map((s:any)=>({ name: s.n, type: 'Loaded via API' })) || []));
             
             setIsApiReportView(true);
             setIsValidated(true);
@@ -217,23 +214,16 @@ function App() {
     setActiveView('dashboard');
   };
 
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [aiAnalysisResult, setAiAnalysisResult] = useState<string | null>(null);
-
-  const handleAIAnalysis = async () => {
-      setIsAnalyzing(true);
-      try {
-          const result = await analyzeErrorWithGemini(validationResults, salesFiles, summaryFile, aggregatedData);
-          setAiAnalysisResult(result);
-      } catch (e) {
-          setAiAnalysisResult("No se pudo completar el análisis de IA.");
-      } finally { setIsAnalyzing(false); }
+  const handleInspect = (file: { name: string, type: string, raw?: ParsedSale11004 }) => {
+    if (file.raw) {
+        setInspectingFile(inspectSingleFile(file.raw));
+    }
   };
 
   const clearAll = () => {
     setSalesFiles([]); setSummaryFile(null); setStartFile(null); setEndFile(null);
     setFilesLoaded([]); setValidationResults([]); setDiscountBreakdown([]);
-    setAggregatedData(null); setError(null); setIsValidated(false); setAiAnalysisResult(null);
+    setAggregatedData(null); setError(null); setIsValidated(false); setInspectingFile(null);
     setIsApiReportView(false);
     setActiveView('upload');
     if (window.location.search) {
@@ -253,7 +243,7 @@ function App() {
       <nav className="flex-1 py-6 space-y-2 px-3">
         <button 
             onClick={() => setActiveView('upload')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeView === 'upload' ? 'bg-aena-green text-white' : 'text-gray-400 hover:bg-gray-800'}`}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeView === 'upload' ? 'bg-aena-green text-white shadow-lg shadow-green-900/20' : 'text-gray-400 hover:bg-gray-800'}`}
         >
             <IconUpload /> <span className="font-medium">Data Upload</span>
         </button>
@@ -261,7 +251,7 @@ function App() {
         <button 
             onClick={() => isValidated && setActiveView('dashboard')}
             disabled={!isValidated}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeView === 'dashboard' ? 'bg-aena-green text-white' : 'text-gray-400 hover:bg-gray-800'} ${!isValidated && 'opacity-50'}`}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${activeView === 'dashboard' ? 'bg-aena-green text-white shadow-lg shadow-green-900/20' : 'text-gray-400 hover:bg-gray-800'} ${!isValidated && 'opacity-50'}`}
         >
             <IconDashboard /> <span className="font-medium">Audit Dashboard</span>
         </button>
@@ -330,16 +320,60 @@ function App() {
 
               {activeView === 'upload' && (
                   <div className="max-w-5xl mx-auto py-16 px-4">
-                      <div className="text-center mb-16"><h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 mb-6 tracking-tight">Certification <span className="text-aena-green">Audit</span></h1></div>
+                      <div className="text-center mb-16">
+                          <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 mb-6 tracking-tight">Certification <span className="text-aena-green">Audit</span></h1>
+                          <p className="text-slate-500 max-w-lg mx-auto leading-relaxed">Sube tus ficheros SAVIA para una validación exhaustiva de sintaxis y coherencia cruzada.</p>
+                      </div>
+                      
                       <FileUpload onFilesSelected={handleFilesSelected} />
+                      
                       {filesLoaded.length > 0 && (
-                          <div className="mt-8 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                              <ul className="divide-y divide-gray-50">
-                                  {filesLoaded.map((f, i) => (
-                                      <li key={i} className="px-6 py-4 flex items-center justify-between"><div className="flex items-center space-x-4"><div className="w-10 h-10 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400"><IconUpload /></div><div><p className="text-sm font-semibold text-slate-800">{f.name}</p><p className="text-xs text-slate-500">{f.type}</p></div></div></li>
-                                  ))}
-                              </ul>
-                              <div className="bg-gray-50 px-6 py-4 flex justify-end border-t border-gray-100"><button onClick={runValidation} className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center"><IconCheck /> <span className="ml-2">Run Validation</span></button></div>
+                          <div className="mt-12 space-y-4">
+                              <div className="flex items-center justify-between mb-2 px-2">
+                                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Archivos Preparados</h3>
+                                  <span className="text-xs text-slate-400 italic">Haz clic en un ticket para inspeccionarlo</span>
+                              </div>
+                              <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xl shadow-slate-200/50">
+                                  <ul className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
+                                      {filesLoaded.map((f, i) => (
+                                          <li 
+                                            key={i} 
+                                            onClick={() => f.raw && handleInspect(f)}
+                                            className={`group px-6 py-4 flex items-center justify-between transition-all hover:bg-slate-50 ${f.raw ? 'cursor-pointer' : ''}`}
+                                          >
+                                              <div className="flex items-center space-x-4">
+                                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${f.type === 'Sales' ? 'bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white' : 'bg-slate-50 text-slate-400'}`}>
+                                                      {f.type === 'Sales' ? <IconCheck /> : <IconUpload />}
+                                                  </div>
+                                                  <div>
+                                                      <p className="text-sm font-bold text-slate-800">{f.name}</p>
+                                                      <div className="flex items-center space-x-2">
+                                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${f.type === 'Sales' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{f.type}</span>
+                                                          {f.raw && <span className="text-[10px] text-slate-400 font-mono">Ticket #{f.raw.header.NUM_TICKET}</span>}
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                              {f.raw && (
+                                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-50 text-indigo-600 p-2 rounded-lg">
+                                                      <IconSearch />
+                                                  </div>
+                                              )}
+                                          </li>
+                                      ))}
+                                  </ul>
+                                  <div className="bg-slate-50 px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border-t border-gray-100">
+                                      <div className="text-xs text-slate-500">
+                                          <p><strong>Z:</strong> {summaryFile?.header.NUM_Z || 'N/A'}</p>
+                                          <p><strong>Tickets:</strong> {filesLoaded.filter(f => f.type === 'Sales').length} cargados</p>
+                                      </div>
+                                      <button 
+                                        onClick={runValidation} 
+                                        className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-bold shadow-2xl shadow-slate-900/30 hover:bg-slate-800 hover:-translate-y-1 active:translate-y-0 transition-all flex items-center justify-center space-x-3"
+                                      >
+                                          <IconCheck /> <span>Iniciar Auditoría Completa</span>
+                                      </button>
+                                  </div>
+                              </div>
                           </div>
                       )}
                   </div>
@@ -354,13 +388,13 @@ function App() {
                           <KPI label="Discounts" value={aggregatedData ? fmtMoney(aggregatedData.global.totalDiscountSale + aggregatedData.global.totalDiscountReturn) : '-'} color="blue" />
                       </div>
 
-                      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-                           <div className="bg-white border-b border-gray-200 px-6 pt-4"><nav className="-mb-px flex space-x-8">
+                      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-gray-100 overflow-hidden mb-8">
+                           <div className="bg-white border-b border-gray-100 px-8 pt-4"><nav className="-mb-px flex space-x-8">
                               {['overview', 'matrix', 'ops', 'finance'].map((tab) => (
-                                  <button key={tab} onClick={() => setActiveTab(tab as ResultTab)} className={`${activeTab === tab ? 'border-aena-green text-aena-green' : 'border-transparent text-gray-500 hover:text-gray-700'} py-4 px-1 border-b-2 font-medium text-sm transition-colors capitalize`}>{tab}</button>
+                                  <button key={tab} onClick={() => setActiveTab(tab as ResultTab)} className={`${activeTab === tab ? 'border-aena-green text-aena-green' : 'border-transparent text-gray-500 hover:text-gray-700'} py-4 px-1 border-b-2 font-bold text-xs uppercase tracking-widest transition-colors capitalize`}>{tab}</button>
                               ))}
                            </nav></div>
-                           <div className="p-6">
+                           <div className="p-8">
                               {activeTab === 'overview' && <ResultsTable results={validationResults} isExternalReport={isApiReportView} />}
                               {activeTab === 'matrix' && <SubfamilyCoherenceMatrix calculated={aggregatedData} summary={summaryFile} files={salesFiles} />}
                               {activeTab === 'ops' && <SequenceTimeAnalysis files={salesFiles} />}
@@ -374,14 +408,8 @@ function App() {
           </main>
       </div>
 
-      {aiAnalysisResult && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col overflow-hidden border border-purple-100">
-                   <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 flex justify-between items-center text-white"><div className="flex items-center space-x-2"><IconSparkles /> <h3 className="text-xl font-bold">AI Auditor Analysis</h3></div><button onClick={() => setAiAnalysisResult(null)} className="hover:opacity-70"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
-                   <div className="p-8 overflow-y-auto text-gray-700 text-sm whitespace-pre-wrap">{aiAnalysisResult}</div>
-                   <div className="bg-gray-50 px-6 py-4 border-t flex justify-end"><button onClick={() => setAiAnalysisResult(null)} className="px-6 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">Close</button></div>
-              </div>
-          </div>
+      {inspectingFile && (
+          <FileInspector data={inspectingFile} onClose={() => setInspectingFile(null)} />
       )}
     </div>
   );
