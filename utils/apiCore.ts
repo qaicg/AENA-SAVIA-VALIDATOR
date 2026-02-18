@@ -31,18 +31,17 @@ export const runFullValidationProcess = async (files: File[]): Promise<any> => {
   const syntaxResults = validateSyntaxAndSemantics(sortedSales);
   const aggregated = aggregateSales(sortedSales);
   const coherenceResults = validateCoherence(aggregated, summary, start, end, sortedSales);
+  const discountBreakdown = generateDiscountBreakdown(sortedSales);
 
   const allResults = [...syntaxResults, ...coherenceResults];
   const errors = allResults.filter(r => r.status === 'invalid').length;
   const warnings = allResults.filter(r => r.status === 'warning').length;
 
-  // --- RECONSTRUCCIÓN DE URL (SOLUCIÓN AL 404) ---
-  // Usamos la URL actual sin parámetros para evitar el 404 en servidores que no manejan SPA routing
   const baseUrl = window.location.href.split('?')[0];
   
-  // Codificamos un estado mínimo para que el App.tsx pueda reconstruir la UI
+  // Codificamos un estado COMPLETO para reconstruir todas las pestañas
   const reportPayload = {
-    v: "1.0",
+    v: "1.1",
     summary: {
       totalFiles: files.length,
       errors,
@@ -50,15 +49,18 @@ export const runFullValidationProcess = async (files: File[]): Promise<any> => {
       certified: errors === 0,
       timestamp: new Date().toISOString()
     },
-    // Solo enviamos los nombres para la lista de archivos
-    fileNames: files.map(f => f.name),
-    // Los resultados de validación son lo más importante para la vista de "Overview"
     results: allResults,
-    // Pasamos los datos agregados para los KPIs
-    aggregated: aggregated
+    aggregated: aggregated,
+    // Datos necesarios para Matrix, Ops y Finance:
+    summaryFile: summary, 
+    discountBreakdown: discountBreakdown,
+    // Para Ops/Secuencia solo necesitamos las cabeceras, no todo el contenido raw
+    salesMinimal: sortedSales.map(s => ({ 
+      fileName: s.fileName, 
+      header: s.header 
+    }))
   };
 
-  // Usamos encodeURIComponent y btoa para una URL segura
   const encodedData = btoa(JSON.stringify(reportPayload));
   const reportUrl = `${baseUrl}?api_report=${encodeURIComponent(encodedData)}`;
 

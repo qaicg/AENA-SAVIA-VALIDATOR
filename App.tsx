@@ -41,7 +41,7 @@ function App() {
   const [isValidated, setIsValidated] = useState(false);
   const [isApiReportView, setIsApiReportView] = useState(false);
 
-  // --- DEEP LINK HYDRATION LOGIC ---
+  // --- DEEP LINK HYDRATION LOGIC (V1.1) ---
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const reportData = params.get('api_report');
@@ -49,12 +49,34 @@ function App() {
     if (reportData) {
       try {
         const decoded = JSON.parse(atob(decodeURIComponent(reportData)));
-        console.log("Hydrating from API report:", decoded);
+        console.log("Hydrating from API report V1.1:", decoded);
         
-        // Hidratamos el estado de la aplicación
+        // 1. Resultados de validación y KPIs
         setValidationResults(decoded.results || []);
         setAggregatedData(decoded.aggregated || null);
-        setFilesLoaded((decoded.fileNames || []).map((name: string) => ({ 
+        
+        // 2. Restaurar el SummaryFile para la Matrix
+        if (decoded.summaryFile) {
+            setSummaryFile(decoded.summaryFile);
+        }
+
+        // 3. Restaurar el DiscountBreakdown para Finance
+        if (decoded.discountBreakdown) {
+            setDiscountBreakdown(decoded.discountBreakdown);
+        }
+
+        // 4. Reconstruir salesFiles mínimos para la pestaña Ops
+        if (decoded.salesMinimal) {
+            const reconstructedSales = decoded.salesMinimal.map((s: any) => ({
+                fileName: s.fileName,
+                header: s.header,
+                // Estos campos estarán vacíos en vista report pero permiten que Ops no rompa
+                items: [], taxes: [], payments: [], rawContent: ""
+            }));
+            setSalesFiles(reconstructedSales);
+        }
+
+        setFilesLoaded((decoded.fileNames || decoded.salesMinimal?.map((s:any)=>s.fileName) || []).map((name: string) => ({ 
           name, 
           type: name.includes('11004') ? 'Sales' : 'Summary' 
         })));
@@ -62,19 +84,16 @@ function App() {
         setIsApiReportView(true);
         setIsValidated(true);
         setActiveView('dashboard');
-        
-        // Limpiamos la URL para que el usuario pueda navegar después sin recargar el reporte
-        // window.history.replaceState({}, document.title, window.location.pathname);
       } catch (e) {
         console.error("Invalid report link", e);
-        setError("El enlace de reporte no es válido o ha expirado.");
+        setError("El enlace de reporte no es válido o está incompleto.");
       }
     }
   }, []);
 
   const handleFilesSelected = async (fileList: FileList) => {
     setError(null);
-    setIsApiReportView(false); // Si sube archivos nuevos, ya no es vista de API
+    setIsApiReportView(false); 
     const newSales: ParsedSale11004[] = [];
     let newSummary: ParsedSummary11008 | null = null;
     let newStart: ParsedSystemEvent | null = null;
@@ -184,7 +203,6 @@ function App() {
     setAggregatedData(null); setError(null); setIsValidated(false); setAiAnalysisResult(null);
     setIsApiReportView(false);
     setActiveView('upload');
-    // Limpiamos parámetros de la URL si los hay
     if (window.location.search) {
         window.history.replaceState({}, document.title, window.location.pathname);
     }
