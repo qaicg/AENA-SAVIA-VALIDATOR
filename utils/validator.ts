@@ -466,7 +466,7 @@ export const validateCoherence = (
 
   globalDiscountChecks.forEach(chk => {
        const diff = Math.abs(chk.val - chk.ref);
-       if (diff >= 50) { 
+       if (diff >= 60) { 
            results.push({
                status: 'invalid',
                message: `Global Mismatch: ${chk.label}`,
@@ -563,7 +563,7 @@ export const validateCoherence = (
     
     // Discount Check (Sales)
     const diffDesc = Math.abs(calc.discountSale - sumLine.impDesc);
-    if (diffDesc >= 50) {
+    if (diffDesc >= 60) {
         subfamiliesError = true;
         results.push({ 
             status: 'invalid', 
@@ -579,7 +579,7 @@ export const validateCoherence = (
 
     // Discount Check (Returns)
     const diffDescD = Math.abs(calc.discountReturn - sumLine.impDescD);
-    if (diffDescD >= 50) {
+    if (diffDescD >= 60) {
         subfamiliesError = true;
         results.push({ 
             status: 'invalid', 

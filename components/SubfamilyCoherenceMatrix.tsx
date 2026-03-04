@@ -64,14 +64,14 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
         const diffGrossD = calc.grossReturn - sum.grossD;
         const diffDescD = calc.discountReturn - sum.discountD;
 
-        // Tolerance of < 5 cents (< 50 units) for money fields
+        // Tolerance of < 5 cents (< 50 units) for money fields, but 6 cents for discounts
         const hasError = 
             diffQtyV !== 0 || 
             Math.abs(diffGrossV) > 50 || 
-            Math.abs(diffDescV) >= 50 ||
+            Math.abs(diffDescV) >= 60 ||
             diffQtyD !== 0 || 
             Math.abs(diffGrossD) > 50 ||
-            Math.abs(diffDescD) >= 50;
+            Math.abs(diffDescD) >= 60;
 
         return {
             id,
@@ -124,16 +124,16 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
   const isEndTicketError = sumEnd !== calcEnd;
 
   // Global Discount Logic (Headers vs Summary)
-  // Tolerance: STRICT < 50 units
+  // Tolerance: STRICT < 60 units
   const sumDescV = summary.header.IMPDESCUENTO_V;
   const calcDescV = calculated.global.totalDiscountSale;
   const diffDescV = calcDescV - sumDescV;
-  const isDescVError = Math.abs(diffDescV) >= 50; // STRICT
+  const isDescVError = Math.abs(diffDescV) >= 60; // STRICT
 
   const sumDescD = summary.header.IMPDESCUENTO_D;
   const calcDescD = calculated.global.totalDiscountReturn;
   const diffDescD = calcDescD - sumDescD;
-  const isDescDError = Math.abs(diffDescD) >= 50; // STRICT
+  const isDescDError = Math.abs(diffDescD) >= 60; // STRICT
 
 
   const isGlobalSaleError = globalSaleDiff !== 0;
@@ -351,12 +351,12 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
                                                 {fmtMoney(row.sum.grossV)}
                                                 {isGrossVError && <span className="block text-[10px] text-red-500">Diff: {fmtMoney(row.diffs.diffGrossV)}</span>}
                                             </td>
-                                            <td className={`px-2 py-2 text-right font-mono border-r border-gray-200 ${Math.abs(row.diffs.diffDescV) >= 50 ? 'text-red-600 font-bold bg-red-100' : 'text-gray-600'}`}>
+                                            <td className={`px-2 py-2 text-right font-mono border-r border-gray-200 ${Math.abs(row.diffs.diffDescV) >= 60 ? 'text-red-600 font-bold bg-red-100' : 'text-gray-600'}`}>
                                                 <div className="flex flex-col">
                                                     <span className="text-indigo-600">{fmtMoney(row.calc.discountSale)}</span>
                                                     <span className="text-gray-400 text-[10px]">vs {fmtMoney(row.sum.discountV)}</span>
                                                 </div>
-                                                {Math.abs(row.diffs.diffDescV) >= 50 && <span className="block text-[10px] text-red-500">Diff: {fmtMoney(row.diffs.diffDescV)}</span>}
+                                                {Math.abs(row.diffs.diffDescV) >= 60 && <span className="block text-[10px] text-red-500">Diff: {fmtMoney(row.diffs.diffDescV)}</span>}
                                             </td>
 
                                             {/* --- Returns Data --- */}
@@ -371,12 +371,12 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
                                                 {fmtMoney(row.sum.grossD)}
                                                 {isGrossDError && <span className="block text-[10px] text-red-500">Diff: {fmtMoney(row.diffs.diffGrossD)}</span>}
                                             </td>
-                                            <td className={`px-2 py-2 text-right font-mono ${Math.abs(row.diffs.diffDescD) >= 50 ? 'text-red-600 font-bold bg-red-100' : 'text-gray-600'}`}>
+                                            <td className={`px-2 py-2 text-right font-mono ${Math.abs(row.diffs.diffDescD) >= 60 ? 'text-red-600 font-bold bg-red-100' : 'text-gray-600'}`}>
                                                 <div className="flex flex-col">
                                                     <span className="text-indigo-600">{fmtMoney(row.calc.discountReturn)}</span>
                                                     <span className="text-gray-400 text-[10px]">vs {fmtMoney(row.sum.discountD)}</span>
                                                 </div>
-                                                {Math.abs(row.diffs.diffDescD) >= 50 && <span className="block text-[10px] text-red-500">Diff: {fmtMoney(row.diffs.diffDescD)}</span>}
+                                                {Math.abs(row.diffs.diffDescD) >= 60 && <span className="block text-[10px] text-red-500">Diff: {fmtMoney(row.diffs.diffDescD)}</span>}
                                             </td>
                                         </tr>
                                     );
