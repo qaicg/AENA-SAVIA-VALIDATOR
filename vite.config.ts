@@ -59,7 +59,7 @@ async function parseMultipartData(req: any) {
 
 export default defineConfig({
   server: {
-    port: 5001,
+    port: 3000,
     strictPort: true,
     host: true
   },
