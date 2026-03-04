@@ -381,6 +381,35 @@ function App() {
 
               {activeView === 'dashboard' && (
                   <div className="py-8 px-8 max-w-7xl mx-auto">
+                      {/* Certification Banner */}
+                      <div className="mb-8 flex justify-center">
+                          {validationResults.every(r => r.status !== 'invalid') ? (
+                              <div className="bg-green-50 border-2 border-green-200 px-10 py-6 rounded-[2rem] shadow-xl shadow-green-100 flex items-center space-x-6">
+                                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg shrink-0">
+                                      <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                  </div>
+                                  <div>
+                                      <h2 className="text-4xl font-black text-green-800 tracking-tighter leading-none uppercase">Certificado</h2>
+                                      <p className="text-green-600 font-medium mt-1">Todos los controles de integridad han sido superados.</p>
+                                  </div>
+                              </div>
+                          ) : (
+                              <div className="bg-red-50 border-2 border-red-200 px-10 py-6 rounded-[2rem] shadow-xl shadow-red-100 flex items-center space-x-6">
+                                  <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg shrink-0">
+                                      <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                  </div>
+                                  <div>
+                                      <h2 className="text-4xl font-black text-red-800 tracking-tighter leading-none uppercase">No Certificado</h2>
+                                      <p className="text-red-600 font-medium mt-1">Se han detectado discrepancias críticas en los datos.</p>
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                           <KPI label="Total Sales" value={aggregatedData ? fmtMoney(aggregatedData.global.totalGrossSale) : '-'} subtext={`${aggregatedData?.global.countSale} Tickets`} color="green" />
                           <KPI label="Total Returns" value={aggregatedData ? fmtMoney(aggregatedData.global.totalGrossReturn) : '-'} subtext={`${aggregatedData?.global.countReturn} Tickets`} color="red" />
