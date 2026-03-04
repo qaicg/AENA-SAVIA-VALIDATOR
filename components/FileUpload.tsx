@@ -44,7 +44,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFilesSelected }) => {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       className={`
-        relative group rounded-3xl p-12 text-center transition-all duration-500 cursor-pointer overflow-hidden border-[3px] border-dashed
+        relative group rounded-3xl p-8 text-center transition-all duration-500 cursor-pointer overflow-hidden border-[3px] border-dashed
         ${isDragActive 
           ? 'border-aena-green bg-green-50/30 scale-[1.01] shadow-2xl shadow-aena-green/20' 
           : 'border-slate-200 hover:border-aena-green/40 hover:bg-slate-50/50 hover:shadow-xl hover:shadow-slate-200/50'
@@ -86,30 +86,30 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFilesSelected }) => {
       <div className="relative z-10 flex flex-col items-center justify-center">
         
         {/* Icon Circle with Ring Effect */}
-        <div className="relative mb-6">
+        <div className="relative mb-4">
             <div className={`absolute inset-0 rounded-full blur opacity-40 transition-all duration-500 ${isDragActive ? 'bg-aena-green scale-150' : 'bg-slate-300 scale-90'}`}></div>
             <div className={`
-                relative w-24 h-24 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border
+                relative w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-300 shadow-sm border
                 ${isDragActive 
                     ? 'bg-gradient-to-b from-aena-green to-aena-accent text-white border-transparent rotate-3 shadow-lg shadow-green-200' 
                     : 'bg-white text-slate-400 border-slate-100 group-hover:text-aena-green group-hover:border-green-100 group-hover:-translate-y-1'
                 }
             `}>
                 {isDragActive ? (
-                     <svg className="w-10 h-10 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                     <svg className="w-8 h-8 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                      </svg>
                 ) : (
                     // Cloud Upload Icon with Bounce Animation
-                    <svg className="w-10 h-10 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-8 h-8 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                 )}
             </div>
         </div>
         
-        <div className="space-y-2 mb-8">
-            <h3 className={`text-2xl font-bold font-display transition-colors ${isDragActive ? 'text-aena-dark' : 'text-slate-700'}`}>
+        <div className="space-y-1 mb-6">
+            <h3 className={`text-xl font-bold font-display transition-colors ${isDragActive ? 'text-aena-dark' : 'text-slate-700'}`}>
                 {isDragActive ? 'Drop Files to Initiate Audit' : 'Upload Transaction Logs'}
             </h3>
             <p className="text-slate-500 max-w-md mx-auto leading-relaxed text-sm">
