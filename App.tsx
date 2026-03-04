@@ -98,22 +98,19 @@ function App() {
 
             const isCertified = results.every(r => r.status === 'valid' || r.status === 'warning');
     
-            if (isCertified) {
-                confetti({
-                    particleCount: 150,
-                    spread: 70,
-                    origin: { y: 0.6 },
-                    colors: ['#8DB72D', '#729624', '#FFFFFF']
-                });
-            } else {
-                setIsFlashing(false);
-                setTimeout(() => {
-                    setIsFlashing(true);
-                    setTimeout(() => setIsFlashing(false), 2000);
-                }, 10);
-            }
+    if (isCertified) {
+        confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#8DB72D', '#729624', '#FFFFFF']
+        });
+    } else {
+        setIsFlashing(true);
+        setTimeout(() => setIsFlashing(false), 2000);
+    }
 
-            setValidationResults(results);
+    setValidationResults(results);
             setAggregatedData(agg || null);
             setSummaryFile(sum || null);
             setDiscountBreakdown(disc || []);
@@ -237,11 +234,8 @@ function App() {
             colors: ['#8DB72D', '#729624', '#FFFFFF']
         });
     } else {
-        setIsFlashing(false);
-        setTimeout(() => {
-            setIsFlashing(true);
-            setTimeout(() => setIsFlashing(false), 2000);
-        }, 10);
+        setIsFlashing(true);
+        setTimeout(() => setIsFlashing(false), 2000);
     }
 
     setValidationResults(allResults);
@@ -330,11 +324,7 @@ function App() {
   );
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans relative">
-      {/* Overlay de parpadeo rojo */}
-      {isFlashing && (
-        <div className="fixed inset-0 z-[9999] pointer-events-none animate-flash-red"></div>
-      )}
+    <div className={`flex h-screen bg-gray-50 font-sans relative ${isFlashing ? 'animate-flash-red' : ''}`}>
       <Sidebar />
       <div className="flex-1 overflow-hidden relative">
           <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 shadow-sm z-20">
