@@ -1,5 +1,6 @@
 
 import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 import { Buffer } from 'node:buffer';
 import zlib from 'node:zlib';
 import { identifyTransactionType, parse11004, parse11008, parseSystemEvent } from './utils/parser';
@@ -61,13 +62,14 @@ export default defineConfig({
   server: {
     port: 3000,
     strictPort: true,
-    host: true
+    host: '0.0.0.0'
   },
   define: {
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
     'process.env': {}
   },
   plugins: [
+    react(),
     {
       name: 'aena-server-api',
       configureServer(server) {
@@ -113,7 +115,7 @@ export default defineConfig({
               const warningsCount = allResults.filter(r => r.status === 'warning').length;
 
               // Generar Report URL con Payload Minificado
-              const host = req.headers.host || 'localhost:5001';
+              const host = req.headers.host || 'localhost:3000';
               const protocol = req.headers['x-forwarded-proto'] || 'http';
               const baseUrl = `${protocol}://${host}/`;
 
