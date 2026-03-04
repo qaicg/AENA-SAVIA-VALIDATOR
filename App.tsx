@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import FileUpload from './components/FileUpload';
 import ResultsTable from './components/ResultsTable';
 import DiscountBreakdown from './components/DiscountBreakdown';
@@ -68,6 +69,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isValidated, setIsValidated] = useState(false);
   const [isApiReportView, setIsApiReportView] = useState(false);
+  const [isFlashing, setIsFlashing] = useState(false);
   const [inspectingFile, setInspectingFile] = useState<SingleFileInspection | null>(null);
 
   // --- DEEP LINK HYDRATION LOGIC ---
@@ -92,6 +94,23 @@ function App() {
                     status: 'valid', 
                     message: 'Auditoría superada: Todos los archivos cumplen la normativa SAVIA.' 
                 });
+            }
+
+            const isCertified = results.every(r => r.status === 'valid' || r.status === 'warning');
+    
+            if (isCertified) {
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#8DB72D', '#729624', '#FFFFFF']
+                });
+            } else {
+                setIsFlashing(false);
+                setTimeout(() => {
+                    setIsFlashing(true);
+                    setTimeout(() => setIsFlashing(false), 2000);
+                }, 10);
             }
 
             setValidationResults(results);
@@ -207,7 +226,25 @@ function App() {
     const aggregated = aggregateSales(sortedSales);
     const coherenceResults = validateCoherence(aggregated, summaryFile, startFile || undefined, endFile || undefined, sortedSales);
     
-    setValidationResults([...syntaxResults, ...coherenceResults]);
+    const allResults = [...syntaxResults, ...coherenceResults];
+    const isCertified = allResults.every(r => r.status === 'valid' || r.status === 'warning');
+    
+    if (isCertified) {
+        confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#8DB72D', '#729624', '#FFFFFF']
+        });
+    } else {
+        setIsFlashing(false);
+        setTimeout(() => {
+            setIsFlashing(true);
+            setTimeout(() => setIsFlashing(false), 2000);
+        }, 10);
+    }
+
+    setValidationResults(allResults);
     setAggregatedData(aggregated);
     setDiscountBreakdown(generateDiscountBreakdown(sortedSales));
     setIsValidated(true);
@@ -293,7 +330,11 @@ function App() {
   );
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans">
+    <div className="flex h-screen bg-gray-50 font-sans relative">
+      {/* Overlay de parpadeo rojo */}
+      {isFlashing && (
+        <div className="fixed inset-0 z-[9999] pointer-events-none animate-flash-red"></div>
+      )}
       <Sidebar />
       <div className="flex-1 overflow-hidden relative">
           <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-8 shadow-sm z-20">
