@@ -23,21 +23,21 @@ export const calculateTotalItemDiscount = (item: SaleItemLine, header: SaleHeade
     // Header DTO 1
     let d1 = 0;
     if (header.DTO_PORC_1 && header.DTO_PORC_1 !== 0) {
-        d1 = base * (header.DTO_PORC_1 / 10000);
+        d1 = Math.round(base * (header.DTO_PORC_1 / 10000));
         base = base - d1;
     }
 
     // Header DTO 2
     let d2 = 0;
     if (header.DTO_PORC_2 && header.DTO_PORC_2 !== 0) {
-        d2 = base * (header.DTO_PORC_2 / 10000);
+        d2 = Math.round(base * (header.DTO_PORC_2 / 10000));
         base = base - d2;
     }
 
     // Header DTO 3
     let d3 = 0;
     if (header.DTO_PORC_3 && header.DTO_PORC_3 !== 0) {
-        d3 = base * (header.DTO_PORC_3 / 10000);
+        d3 = Math.round(base * (header.DTO_PORC_3 / 10000));
     }
     
     const proratedHeaderDiscount = d1 + d2 + d3;
@@ -131,10 +131,88 @@ export const inspectSingleFile = (file: ParsedSale11004): SingleFileInspection =
     return {
         fileName: file.fileName,
         ticketNum: file.header.NUM_TICKET,
+        type: 'Sales',
         checks,
         lines: file.items,
         taxes: file.taxes,
         payments: file.payments
+    };
+};
+
+// NEW: Summary File Internal Inspection
+export const inspectSummaryFile = (file: ParsedSummary11008): SingleFileInspection => {
+    let sumGrossV = 0;
+    let sumNetV = 0;
+    let sumDiscV = 0;
+    let sumGrossD = 0;
+    let sumNetD = 0;
+    let sumDiscD = 0;
+    let sumQtyV = 0;
+    let sumQtyD = 0;
+
+    file.aggregations.forEach(agg => {
+        sumGrossV += agg.IMPBRUTO_VSFZ;
+        sumNetV += agg.IMPNETO_VSFZ;
+        sumDiscV += agg.IMPDESCUENTO_VSFZ;
+        sumQtyV += agg.ARTICULOS_V;
+
+        sumGrossD += agg.IMPBRUTO_DSFZ;
+        sumNetD += agg.IMPNETO_DSFZ;
+        sumDiscD += agg.IMPDESCUENTO_DSFZ;
+        sumQtyD += agg.ARTICULOS_D;
+    });
+
+    const checks = [
+        {
+            label: "Total Gross Sales (IMPBRUTO_V)",
+            headerValue: fmtMoney(file.header.IMPBRUTO_V),
+            calcValue: fmtMoney(sumGrossV),
+            diff: fmtMoney(file.header.IMPBRUTO_V - sumGrossV),
+            isOk: file.header.IMPBRUTO_V === sumGrossV
+        },
+        {
+            label: "Total Net Sales (IMPNETO_V)",
+            headerValue: fmtMoney(file.header.IMPNETO_V),
+            calcValue: fmtMoney(sumNetV),
+            diff: fmtMoney(file.header.IMPNETO_V - sumNetV),
+            isOk: file.header.IMPNETO_V === sumNetV
+        },
+        {
+            label: "Total Discount Sales (IMPDESCUENTO_V)",
+            headerValue: fmtMoney(file.header.IMPDESCUENTO_V),
+            calcValue: fmtMoney(sumDiscV),
+            diff: fmtMoney(file.header.IMPDESCUENTO_V - sumDiscV),
+            isOk: file.header.IMPDESCUENTO_V === sumDiscV
+        },
+        {
+            label: "Total Gross Returns (IMPBRUTO_D)",
+            headerValue: fmtMoney(file.header.IMPBRUTO_D),
+            calcValue: fmtMoney(sumGrossD),
+            diff: fmtMoney(file.header.IMPBRUTO_D - sumGrossD),
+            isOk: file.header.IMPBRUTO_D === sumGrossD
+        },
+        {
+            label: "Total Net Returns (IMPNETO_D)",
+            headerValue: fmtMoney(file.header.IMPNETO_D),
+            calcValue: fmtMoney(sumNetD),
+            diff: fmtMoney(file.header.IMPNETO_D - sumNetD),
+            isOk: file.header.IMPNETO_D === sumNetD
+        },
+        {
+            label: "Total Discount Returns (IMPDESCUENTO_D)",
+            headerValue: fmtMoney(file.header.IMPDESCUENTO_D),
+            calcValue: fmtMoney(sumDiscD),
+            diff: fmtMoney(file.header.IMPDESCUENTO_D - sumDiscD),
+            isOk: file.header.IMPDESCUENTO_D === sumDiscD
+        }
+    ];
+
+    return {
+        fileName: file.fileName,
+        ticketNum: `Z-${file.header.NUM_Z}`,
+        type: 'Summary',
+        checks,
+        aggregations: file.aggregations
     };
 };
 
@@ -388,7 +466,7 @@ export const validateCoherence = (
 
   globalDiscountChecks.forEach(chk => {
        const diff = Math.abs(chk.val - chk.ref);
-       if (diff >= 100) { 
+       if (diff >= 50) { 
            results.push({
                status: 'invalid',
                message: `Global Mismatch: ${chk.label}`,
@@ -485,7 +563,7 @@ export const validateCoherence = (
     
     // Discount Check (Sales)
     const diffDesc = Math.abs(calc.discountSale - sumLine.impDesc);
-    if (diffDesc >= 100) {
+    if (diffDesc >= 50) {
         subfamiliesError = true;
         results.push({ 
             status: 'invalid', 
@@ -501,7 +579,7 @@ export const validateCoherence = (
 
     // Discount Check (Returns)
     const diffDescD = Math.abs(calc.discountReturn - sumLine.impDescD);
-    if (diffDescD >= 100) {
+    if (diffDescD >= 50) {
         subfamiliesError = true;
         results.push({ 
             status: 'invalid', 

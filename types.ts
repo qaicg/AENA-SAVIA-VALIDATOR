@@ -174,6 +174,7 @@ export interface FileDiscountBreakdown {
 export interface SingleFileInspection {
     fileName: string;
     ticketNum: string;
+    type: 'Sales' | 'Summary';
     checks: {
         label: string;
         headerValue: number | string;
@@ -182,9 +183,10 @@ export interface SingleFileInspection {
         isOk: boolean;
         isWarning?: boolean;
     }[];
-    lines: SaleItemLine[];
-    taxes: SaleTaxLine[];
-    payments: SalePaymentLine[];
+    lines?: SaleItemLine[];
+    taxes?: SaleTaxLine[];
+    payments?: SalePaymentLine[];
+    aggregations?: SummaryAggregationLine[];
 }
 
 // --- NUEVOS TIPOS PARA API ---

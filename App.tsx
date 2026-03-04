@@ -8,7 +8,7 @@ import SubfamilyCoherenceMatrix from './components/SubfamilyCoherenceMatrix';
 import SequenceTimeAnalysis from './components/SequenceTimeAnalysis';
 import ApiDocs from './components/ApiDocs';
 import { identifyTransactionType, parse11004, parse11008, parseSystemEvent } from './utils/parser';
-import { aggregateSales, generateDiscountBreakdown, inspectSingleFile, validateCoherence, fmtMoney } from './utils/validator';
+import { aggregateSales, generateDiscountBreakdown, inspectSingleFile, inspectSummaryFile, validateCoherence, fmtMoney } from './utils/validator';
 import { validateSyntaxAndSemantics } from './utils/syntaxValidator';
 import { analyzeErrorWithGemini } from './utils/aiAnalyzer';
 import { FileDiscountBreakdown, ParsedSale11004, ParsedSummary11008, ParsedSystemEvent, SingleFileInspection, TransactionType, ValidationResult, AggregatedData } from './types';
@@ -60,7 +60,7 @@ function App() {
   const [summaryFile, setSummaryFile] = useState<ParsedSummary11008 | null>(null);
   const [startFile, setStartFile] = useState<ParsedSystemEvent | null>(null);
   const [endFile, setEndFile] = useState<ParsedSystemEvent | null>(null);
-  const [filesLoaded, setFilesLoaded] = useState<{name: string, type: string, raw?: ParsedSale11004}[]>([]);
+  const [filesLoaded, setFilesLoaded] = useState<{name: string, type: string, raw?: ParsedSale11004, summaryRaw?: ParsedSummary11008}[]>([]);
   
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
   const [discountBreakdown, setDiscountBreakdown] = useState<FileDiscountBreakdown[]>([]);
@@ -128,7 +128,7 @@ function App() {
     let newSummary: ParsedSummary11008 | null = null;
     let newStart: ParsedSystemEvent | null = null;
     let newEnd: ParsedSystemEvent | null = null;
-    const newLoaded: {name: string, type: string, raw?: ParsedSale11004}[] = [];
+    const newLoaded: {name: string, type: string, raw?: ParsedSale11004, summaryRaw?: ParsedSummary11008}[] = [];
 
     const currentFileNames = new Set(salesFiles.map(f => f.fileName));
     if (summaryFile) currentFileNames.add(summaryFile.fileName);
@@ -160,7 +160,7 @@ function App() {
         } else if (type === TransactionType.SUMMARY) {
           const parsed = parse11008(file.name, content);
           newSummary = parsed;
-          newLoaded.push({ name: file.name, type: 'Summary' });
+          newLoaded.push({ name: file.name, type: 'Summary', summaryRaw: parsed });
         } else if (type === TransactionType.START_DAY) {
            const parsed = parseSystemEvent(file.name, content, TransactionType.START_DAY);
            newStart = parsed;
@@ -214,9 +214,11 @@ function App() {
     setActiveView('dashboard');
   };
 
-  const handleInspect = (file: { name: string, type: string, raw?: ParsedSale11004 }) => {
+  const handleInspect = (file: { name: string, type: string, raw?: ParsedSale11004, summaryRaw?: ParsedSummary11008 }) => {
     if (file.raw) {
         setInspectingFile(inspectSingleFile(file.raw));
+    } else if (file.summaryRaw) {
+        setInspectingFile(inspectSummaryFile(file.summaryRaw));
     }
   };
 
@@ -338,22 +340,23 @@ function App() {
                                       {filesLoaded.map((f, i) => (
                                           <li 
                                             key={i} 
-                                            onClick={() => f.raw && handleInspect(f)}
-                                            className={`group px-6 py-4 flex items-center justify-between transition-all hover:bg-slate-50 ${f.raw ? 'cursor-pointer' : ''}`}
+                                            onClick={() => (f.raw || f.summaryRaw) && handleInspect(f)}
+                                            className={`group px-6 py-4 flex items-center justify-between transition-all hover:bg-slate-50 ${(f.raw || f.summaryRaw) ? 'cursor-pointer' : ''}`}
                                           >
                                               <div className="flex items-center space-x-4">
-                                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${f.type === 'Sales' ? 'bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white' : 'bg-slate-50 text-slate-400'}`}>
-                                                      {f.type === 'Sales' ? <IconCheck /> : <IconUpload />}
+                                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${f.type === 'Sales' ? 'bg-green-50 text-green-600 group-hover:bg-green-600 group-hover:text-white' : f.type === 'Summary' ? 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white' : 'bg-slate-50 text-slate-400'}`}>
+                                                      {f.type === 'Sales' ? <IconCheck /> : f.type === 'Summary' ? <IconDashboard /> : <IconUpload />}
                                                   </div>
                                                   <div>
                                                       <p className="text-sm font-bold text-slate-800">{f.name}</p>
                                                       <div className="flex items-center space-x-2">
-                                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${f.type === 'Sales' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>{f.type}</span>
+                                                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-tighter ${f.type === 'Sales' ? 'bg-green-100 text-green-700' : f.type === 'Summary' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{f.type}</span>
                                                           {f.raw && <span className="text-[10px] text-slate-400 font-mono">Ticket #{f.raw.header.NUM_TICKET}</span>}
+                                                          {f.summaryRaw && <span className="text-[10px] text-slate-400 font-mono">Z #{f.summaryRaw.header.NUM_Z}</span>}
                                                       </div>
                                                   </div>
                                               </div>
-                                              {f.raw && (
+                                              {(f.raw || f.summaryRaw) && (
                                                   <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-50 text-indigo-600 p-2 rounded-lg">
                                                       <IconSearch />
                                                   </div>
