@@ -62,7 +62,7 @@ const AIChat: React.FC<AIChatProps> = ({ results, aggregatedData, summary }) => 
             {/* Toggle Button */}
             <button 
                 onClick={() => setIsOpen(!isOpen)}
-                className="fixed bottom-8 right-8 w-14 h-14 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform z-50"
+                className="fixed bottom-8 right-8 w-14 h-14 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform z-[9999]"
             >
                 {isOpen ? (
                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
