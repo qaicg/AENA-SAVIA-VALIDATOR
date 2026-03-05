@@ -61,7 +61,10 @@ const AIChat: React.FC<AIChatProps> = ({ results, aggregatedData, summary }) => 
         <>
             {/* Toggle Button */}
             <button 
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => {
+                    console.log("AI Chat button clicked. Current state:", isOpen);
+                    setIsOpen(!isOpen);
+                }}
                 className="fixed bottom-8 right-8 w-14 h-14 bg-slate-900 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform z-[9999]"
             >
                 {isOpen ? (
