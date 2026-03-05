@@ -23,13 +23,11 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
   const handleAiAnalysis = async () => {
     if (!discountDetail || !summary) return;
 
-    // Check if API key is selected (for Gemini 3 models)
-    if (typeof window !== 'undefined' && (window as any).aistudio) {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-            await (window as any).aistudio.openSelectKey();
-            // After opening the dialog, we proceed. The platform will inject the key.
-        }
+    // Check if API key is available
+    const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        setAiAnalysis("Error: No se ha configurado la clave API de Gemini.");
+        return;
     }
 
     setIsAnalyzing(true);
@@ -55,12 +53,11 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
   };
 
   const handleSubfamilyAiAnalysis = async (type: 'sale' | 'return', subfamId: string, summaryValue: number, calculatedValue: number, subfamFiles: any[]) => {
-    // Check if API key is selected
-    if (typeof window !== 'undefined' && (window as any).aistudio) {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-            await (window as any).aistudio.openSelectKey();
-        }
+    // Check if API key is available
+    const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        setAiAnalysis("Error: No se ha configurado la clave API de Gemini.");
+        return;
     }
 
     setIsAnalyzing(true);

@@ -193,3 +193,25 @@ export const analyzeErrorWithGemini = async (
     return `Error al conectar con la IA de análisis: ${error.message || 'Error desconocido'}`;
   }
 };
+
+export const chatWithGemini = async (
+  message: string,
+  history: { role: string; parts: { text: string }[] }[],
+  context: { results: ValidationResult[]; aggregatedData: AggregatedData | null; summary: ParsedSummary11008 | null }
+): Promise<string> => {
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'undefined') {
+    return "Error: No se ha configurado la clave API de Gemini.";
+  }
+  const ai = new GoogleGenAI({ apiKey: apiKey as string });
+
+  const chat = ai.chats.create({
+    model: 'gemini-3-flash-preview',
+    config: {
+      systemInstruction: `Eres un asistente de auditoría SAVIA. Contexto: ${JSON.stringify(context)}`,
+    }
+  });
+
+  const response = await chat.sendMessage({ message });
+  return response.text || "La IA no pudo generar una respuesta.";
+};
