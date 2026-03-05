@@ -8,6 +8,7 @@ import FileInspector from './components/FileInspector';
 import SubfamilyCoherenceMatrix from './components/SubfamilyCoherenceMatrix';
 import SequenceTimeAnalysis from './components/SequenceTimeAnalysis';
 import ApiDocs from './components/ApiDocs';
+import AIChat from './components/AIChat';
 import { identifyTransactionType, parse11004, parse11008, parseSystemEvent } from './utils/parser';
 import { aggregateSales, generateDiscountBreakdown, inspectSingleFile, inspectSummaryFile, validateCoherence, fmtMoney } from './utils/validator';
 import { validateSyntaxAndSemantics } from './utils/syntaxValidator';
@@ -474,6 +475,7 @@ function App() {
       {inspectingFile && (
           <FileInspector data={inspectingFile} onClose={() => setInspectingFile(null)} />
       )}
+      <AIChat results={validationResults} aggregatedData={aggregatedData} summary={summaryFile} />
     </div>
   );
 }
