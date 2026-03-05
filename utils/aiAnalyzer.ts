@@ -3,6 +3,13 @@ import { GoogleGenAI } from "@google/genai";
 import { AggregatedData, ParsedSale11004, ParsedSummary11008, ValidationResult } from "../types";
 import { fmtMoney } from "./validator";
 
+const getApiKey = (): string | undefined => {
+  const key = 
+    (typeof process !== 'undefined' && (process.env.API_KEY || process.env.GEMINI_API_KEY)) ||
+    (import.meta.env && (import.meta.env.VITE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY));
+  return key && key !== 'undefined' ? key : undefined;
+};
+
 export const analyzeDiscountMatrixError = async (
   type: 'sale' | 'return',
   summaryValue: number,
@@ -11,16 +18,15 @@ export const analyzeDiscountMatrixError = async (
   summaryFile: ParsedSummary11008 | null,
   subfamId?: string
 ): Promise<string> => {
-  // Use API_KEY as primary (platform injected), GEMINI_API_KEY as fallback
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = getApiKey();
   
   console.log("AI Discount Analysis Triggered", { 
-    hasApiKey: !!apiKey && apiKey !== 'undefined',
+    hasApiKey: !!apiKey,
     type,
     subfamId 
   });
 
-  if (!apiKey || apiKey === 'undefined') {
+  if (!apiKey) {
     return "Error: No se ha configurado la clave API de Gemini. Por favor, asegúrate de que la clave esté disponible en el entorno (API_KEY o GEMINI_API_KEY) o selecciona una clave en el panel superior.";
   }
 
@@ -90,15 +96,14 @@ export const analyzeErrorWithGemini = async (
     return "No se encontraron errores críticos para analizar.";
   }
 
-  // Use API_KEY as primary (platform injected), GEMINI_API_KEY as fallback
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = getApiKey();
 
   console.log("AI Error Analysis Triggered", { 
-    hasApiKey: !!apiKey && apiKey !== 'undefined',
+    hasApiKey: !!apiKey,
     errorType: criticalError.message 
   });
 
-  if (!apiKey || apiKey === 'undefined') {
+  if (!apiKey) {
     return "Error: No se ha configurado la clave API de Gemini.";
   }
 
@@ -199,8 +204,8 @@ export const chatWithGemini = async (
   history: { role: string; parts: { text: string }[] }[],
   context: { results: ValidationResult[]; aggregatedData: AggregatedData | null; summary: ParsedSummary11008 | null }
 ): Promise<string> => {
-  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === 'undefined') {
+  const apiKey = getApiKey();
+  if (!apiKey) {
     return "Error: No se ha configurado la clave API de Gemini.";
   }
   const ai = new GoogleGenAI({ apiKey: apiKey as string });

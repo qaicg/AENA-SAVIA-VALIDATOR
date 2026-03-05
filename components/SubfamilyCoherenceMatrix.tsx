@@ -54,13 +54,6 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
 
   const handleSubfamilyAiAnalysis = async (type: 'sale' | 'return', subfamId: string, summaryValue: number, calculatedValue: number, subfamFiles: any[]) => {
     console.log("AI Analysis button clicked for subfamily:", subfamId, "type:", type);
-    
-    // Debugging: Log available environment variables
-    console.log("Checking API keys...");
-    console.log("process.env.API_KEY:", process.env.API_KEY);
-    console.log("process.env.GEMINI_API_KEY:", process.env.GEMINI_API_KEY);
-    console.log("import.meta.env.VITE_API_KEY:", import.meta.env.VITE_API_KEY);
-    console.log("import.meta.env.VITE_GEMINI_API_KEY:", import.meta.env.VITE_GEMINI_API_KEY);
 
     // Check if API key is available
     const apiKey = 
