@@ -53,9 +53,11 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
   };
 
   const handleSubfamilyAiAnalysis = async (type: 'sale' | 'return', subfamId: string, summaryValue: number, calculatedValue: number, subfamFiles: any[]) => {
+    console.log("AI Analysis button clicked for subfamily:", subfamId, "type:", type);
     // Check if API key is available
     const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
+        console.error("API Key missing");
         setAiAnalysis("Error: No se ha configurado la clave API de Gemini.");
         return;
     }
@@ -66,6 +68,7 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
     setSubfamAnalysisInfo({ subfamId, type, summaryValue, calculatedValue });
     
     try {
+        console.log("Calling analyzeDiscountMatrixError...");
         const report = await analyzeDiscountMatrixError(
             type,
             summaryValue,
@@ -74,8 +77,10 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
             summary,
             subfamId
         );
+        console.log("AI Analysis report generated:", report);
         setAiAnalysis(report);
     } catch (error) {
+        console.error("AI Analysis error:", error);
         setAiAnalysis("Error al generar el análisis de IA para la subfamilia.");
     } finally {
         setIsAnalyzing(false);
@@ -484,7 +489,7 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
                                                         {Math.abs(row.diffs.diffDescV) >= 60 && (
                                                             <button 
                                                                 onClick={() => handleSubfamilyAiAnalysis('sale', String(row.id), row.sum.discountV, row.calc.discountSale, row.contributingFilesV)}
-                                                                className="p-1 text-indigo-500 hover:text-indigo-700 bg-white rounded shadow-sm border border-indigo-100"
+                                                                className="p-1 text-indigo-500 hover:text-indigo-700 bg-white rounded shadow-sm border border-indigo-100 relative z-50"
                                                                 title="Investigar con IA"
                                                             >
                                                                 <Sparkles className="w-3 h-3" />
@@ -515,7 +520,7 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
                                                         {Math.abs(row.diffs.diffDescD) >= 60 && (
                                                             <button 
                                                                 onClick={() => handleSubfamilyAiAnalysis('return', String(row.id), row.sum.discountD, row.calc.discountReturn, row.contributingFilesD)}
-                                                                className="p-1 text-indigo-500 hover:text-indigo-700 bg-white rounded shadow-sm border border-indigo-100"
+                                                                className="p-1 text-indigo-500 hover:text-indigo-700 bg-white rounded shadow-sm border border-indigo-100 relative z-50"
                                                                 title="Investigar con IA"
                                                             >
                                                                 <Sparkles className="w-3 h-3" />

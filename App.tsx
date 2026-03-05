@@ -475,7 +475,6 @@ function App() {
       {inspectingFile && (
           <FileInspector data={inspectingFile} onClose={() => setInspectingFile(null)} />
       )}
-      <AIChat results={validationResults} aggregatedData={aggregatedData} summary={summaryFile} />
     </div>
   );
 }
