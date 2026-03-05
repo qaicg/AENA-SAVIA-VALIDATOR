@@ -1,12 +1,10 @@
 
 import React, { useState } from 'react';
-import { ValidationResult, ParsedSale11004 } from '../types';
-import { suggestCorrection } from '../utils/aiAnalyzer';
+import { ValidationResult } from '../types';
 
 interface ResultsTableProps {
   results: ValidationResult[];
   isExternalReport?: boolean;
-  salesFiles?: ParsedSale11004[];
 }
 
 // Helper to generate detailed explanations based on error context
@@ -114,10 +112,8 @@ const getErrorAnalysis = (message: string, details: any[]) => {
   };
 };
 
-const ResultRow: React.FC<{ res: ValidationResult, salesFiles?: ParsedSale11004[] }> = ({ res, salesFiles }) => {
+const ResultRow: React.FC<{ res: ValidationResult }> = ({ res }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isAIAnalyzing, setIsAIAnalyzing] = useState(false);
-  const [aiCorrection, setAiCorrection] = useState<{ explanation: string, suggestedLine: string } | null>(null);
   const hasDetails = res.details && res.details.length > 0;
   
   // Auto-expand errors on load
@@ -129,29 +125,6 @@ const ResultRow: React.FC<{ res: ValidationResult, salesFiles?: ParsedSale11004[
 
   const handleToggle = () => {
       if (hasDetails) setIsOpen(!isOpen);
-  };
-
-  const handleSuggestCorrection = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isAIAnalyzing) return;
-
-    setIsAIAnalyzing(true);
-    try {
-        // Intentar encontrar el contenido crudo del archivo problemático
-        let rawContent = "";
-        if (salesFiles && res.details?.[0]?.context) {
-            const context = res.details[0].context;
-            const file = salesFiles.find(f => context.includes(f.fileName) || (f.header.NUM_TICKET && context.includes(f.header.NUM_TICKET)));
-            if (file) rawContent = file.rawContent;
-        }
-
-        const suggestion = await suggestCorrection(res, rawContent);
-        setAiCorrection(suggestion);
-    } catch (error) {
-        console.error("AI Correction failed", error);
-    } finally {
-        setIsAIAnalyzing(false);
-    }
   };
 
   const getStatusColor = () => {
@@ -188,61 +161,21 @@ const ResultRow: React.FC<{ res: ValidationResult, salesFiles?: ParsedSale11004[
             </p>
           </div>
           
-          <div className="flex items-center space-x-4">
-              {res.status === 'invalid' && (
-                  <button 
-                    onClick={handleSuggestCorrection}
-                    disabled={isAIAnalyzing}
-                    className="flex items-center space-x-2 px-3 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all disabled:opacity-50"
-                  >
-                      {isAIAnalyzing ? (
-                          <>
-                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            <span>Analizando...</span>
-                          </>
-                      ) : (
-                          <>
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                            <span>Asistente IA</span>
-                          </>
-                      )}
-                  </button>
-              )}
-              
-              {hasDetails && (
-                  <div className="flex-shrink-0 text-gray-400 group-hover:text-gray-600 transition-colors">
-                       <svg 
-                            className={`w-4 h-4 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                        >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                  </div>
-              )}
-          </div>
+          {hasDetails && (
+              <div className="ml-2 flex-shrink-0 text-gray-400 group-hover:text-gray-600 transition-colors">
+                   <svg 
+                        className={`w-4 h-4 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+              </div>
+          )}
         </div>
 
         {/* Details Area */}
         {hasDetails && isOpen && (
-          <div className="bg-slate-50 px-4 py-4 border-b border-gray-100 space-y-4">
-             
-             {/* AI Correction Card */}
-             {aiCorrection && (
-                 <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-2xl border border-slate-800 animate-in fade-in slide-in-from-top-2 duration-300">
-                     <div className="flex items-center space-x-2 mb-4">
-                         <div className="w-6 h-6 bg-aena-green rounded-md flex items-center justify-center">
-                            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                         </div>
-                         <h4 className="text-xs font-bold uppercase tracking-widest text-aena-green">Sugerencia de Corrección IA</h4>
-                     </div>
-                     <p className="text-sm text-slate-300 mb-4 leading-relaxed">{aiCorrection.explanation}</p>
-                     <div className="bg-black/40 rounded-xl p-4 border border-white/10">
-                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Línea Sugerida (11004)</p>
-                         <code className="text-xs font-mono text-emerald-400 break-all">{aiCorrection.suggestedLine}</code>
-                     </div>
-                     <p className="text-[10px] text-slate-500 mt-4 italic">Copia esta línea en tu fichero original para corregir el error.</p>
-                 </div>
-             )}
+          <div className="bg-slate-50 px-4 py-4 border-b border-gray-100">
              
              {/* Analysis Box */}
              {analysis && (
@@ -311,7 +244,7 @@ const ResultRow: React.FC<{ res: ValidationResult, salesFiles?: ParsedSale11004[
   );
 };
 
-const ResultsTable: React.FC<ResultsTableProps> = ({ results, isExternalReport, salesFiles }) => {
+const ResultsTable: React.FC<ResultsTableProps> = ({ results, isExternalReport }) => {
   if (results.length === 0) return (
       <div className="p-8 text-center text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
           No validation results available. Run a validation to see the report.
@@ -339,7 +272,7 @@ const ResultsTable: React.FC<ResultsTableProps> = ({ results, isExternalReport, 
             </div>
             <ul className="divide-y divide-gray-100">
                 {results.map((res, idx) => (
-                    <ResultRow key={idx} res={res} salesFiles={salesFiles} />
+                    <ResultRow key={idx} res={res} />
                 ))}
             </ul>
         </div>
