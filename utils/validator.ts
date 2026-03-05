@@ -45,6 +45,38 @@ export const calculateTotalItemDiscount = (item: SaleItemLine, header: SaleHeade
     return lineDiscount + proratedHeaderDiscount;
 };
 
+// Returns a detailed breakdown of how the discount was calculated for an item
+export const getDiscountBreakdown = (item: SaleItemLine, header: SaleHeader) => {
+    const lineDiscount = item.IMPDESCUENTO_1 + item.IMPDESCUENTO_2 + item.IMPDESCUENTO_3;
+    
+    let base = item.IMPVENTA_A - lineDiscount;
+    
+    let d1 = 0;
+    if (header.DTO_PORC_1 && header.DTO_PORC_1 !== 0) {
+        d1 = Math.round(base * (header.DTO_PORC_1 / 10000));
+        base = base - d1;
+    }
+
+    let d2 = 0;
+    if (header.DTO_PORC_2 && header.DTO_PORC_2 !== 0) {
+        d2 = Math.round(base * (header.DTO_PORC_2 / 10000));
+        base = base - d2;
+    }
+
+    let d3 = 0;
+    if (header.DTO_PORC_3 && header.DTO_PORC_3 !== 0) {
+        d3 = Math.round(base * (header.DTO_PORC_3 / 10000));
+    }
+    
+    return {
+        lineDiscount,
+        headerDiscount: d1 + d2 + d3,
+        headerDetails: { d1, d2, d3 },
+        total: lineDiscount + d1 + d2 + d3,
+        baseVenta: item.IMPVENTA_A
+    };
+};
+
 // NEW: Single File Internal Inspection
 export const inspectSingleFile = (file: ParsedSale11004): SingleFileInspection => {
     let sumGross = 0;

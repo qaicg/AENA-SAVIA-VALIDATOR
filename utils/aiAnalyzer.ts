@@ -1,6 +1,80 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { AggregatedData, ParsedSale11004, ParsedSummary11008, ValidationResult } from "../types";
+import { fmtMoney } from "./validator";
+
+export const analyzeDiscountMatrixError = async (
+  type: 'sale' | 'return',
+  summaryValue: number,
+  calculatedValue: number,
+  contributingFiles: { ticket: string, fileName: string, discount: number, breakdown?: any }[],
+  summaryFile: ParsedSummary11008 | null,
+  subfamId?: string
+): Promise<string> => {
+  // Use API_KEY as primary (platform injected), GEMINI_API_KEY as fallback
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  
+  console.log("AI Discount Analysis Triggered", { 
+    hasApiKey: !!apiKey && apiKey !== 'undefined',
+    type,
+    subfamId 
+  });
+
+  if (!apiKey || apiKey === 'undefined') {
+    return "Error: No se ha configurado la clave API de Gemini. Por favor, asegúrate de que la clave esté disponible en el entorno (API_KEY o GEMINI_API_KEY) o selecciona una clave en el panel superior.";
+  }
+
+  const ai = new GoogleGenAI({ apiKey: apiKey as string });
+
+  const systemInstruction = `
+    Eres un auditor experto en control de calidad para la certificación AENA SAVIA POS. 
+    Tu trabajo es depurar errores de descuentos en el archivo de resumen "11008" comparado con los tickets "11004".
+    
+    Reglas:
+    1. Analiza la discrepancia matemática entre el total del resumen y la suma de los tickets.
+    2. Identifica si el error parece ser un redondeo, un ticket faltante, o un error de cálculo en el prorrateo.
+    3. Formato de moneda AENA: Enteros que representan "milésimas" (ej: 10€ = 10000).
+    4. Responde siempre en ESPAÑOL, de forma técnica y concisa.
+    5. IMPORTANTE: Explica cómo se llega al importe calculado de descuento para los tickets analizados, detallando el descuento de línea vs el descuento de cabecera prorrateado.
+  `;
+
+  const userPrompt = `
+    Se ha detectado una discrepancia en los descuentos de ${type === 'sale' ? 'VENTAS' : 'DEVOLUCIONES'}${subfamId ? ` para la SUBFAMILIA ${subfamId}` : ''}.
+    
+    DATOS DEL RESUMEN (11008):
+    Valor en Resumen: ${fmtMoney(summaryValue)} (${summaryValue} milésimas)
+    
+    DATOS CALCULADOS (Suma de Tickets 11004):
+    Valor Calculado: ${fmtMoney(calculatedValue)} (${calculatedValue} milésimas)
+    Diferencia: ${fmtMoney(calculatedValue - summaryValue)} (${calculatedValue - summaryValue} milésimas)
+    
+    MUESTRA DE TICKETS Y DESGLOSE DE CÁLCULO (Primeros 15):
+    ${JSON.stringify(contributingFiles.slice(0, 15), null, 2)}
+    
+    Por favor:
+    1. Analiza por qué ocurre esta diferencia.
+    2. Explica el desglose del cálculo de descuento para los tickets de la muestra (cómo se suma el descuento de línea y el de cabecera).
+    3. Indica si hay algún patrón de error (ej: redondeos sistemáticos de 1 milésima).
+  `;
+
+  try {
+    console.log("Calling Gemini API...");
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: userPrompt,
+        config: {
+            systemInstruction: systemInstruction,
+            temperature: 0.1,
+        }
+    });
+
+    console.log("Gemini API Response Received");
+    return response.text || "La IA no pudo generar un análisis detallado.";
+  } catch (error: any) {
+    console.error("AI Discount Analysis Failed", error);
+    return `Error al conectar con la IA de análisis: ${error.message || 'Error desconocido'}`;
+  }
+};
 
 export const analyzeErrorWithGemini = async (
   results: ValidationResult[],
@@ -16,8 +90,19 @@ export const analyzeErrorWithGemini = async (
     return "No se encontraron errores críticos para analizar.";
   }
 
-  // Fix: Obtained API key exclusively from process.env.API_KEY and use it directly per SDK guidelines.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+  // Use API_KEY as primary (platform injected), GEMINI_API_KEY as fallback
+  const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+
+  console.log("AI Error Analysis Triggered", { 
+    hasApiKey: !!apiKey && apiKey !== 'undefined',
+    errorType: criticalError.message 
+  });
+
+  if (!apiKey || apiKey === 'undefined') {
+    return "Error: No se ha configurado la clave API de Gemini.";
+  }
+
+  const ai = new GoogleGenAI({ apiKey: apiKey as string });
 
   // 2. Preparar contexto basado en el tipo de error
   let contextData = "";
@@ -90,7 +175,7 @@ export const analyzeErrorWithGemini = async (
   `;
 
   try {
-    // Fix: Using correct ai.models.generateContent pattern with Gemini 3 Flash model.
+    console.log("Calling Gemini API for general error analysis...");
     const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: userPrompt,
@@ -100,10 +185,11 @@ export const analyzeErrorWithGemini = async (
         }
     });
 
+    console.log("Gemini API Response Received (General)");
     // Fix: Access .text property directly (it is not a method).
     return response.text || "La IA no pudo generar un informe detallado en este momento.";
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI Analysis Failed", error);
-    return "Error al conectar con la IA de análisis. Verifica tu clave API y conexión.";
+    return `Error al conectar con la IA de análisis: ${error.message || 'Error desconocido'}`;
   }
 };

@@ -1,7 +1,10 @@
 
 import React, { useState, useMemo } from 'react';
 import { AggregatedData, ParsedSummary11008, ParsedSale11004 } from '../types';
-import { fmtMoney, calculateTotalItemDiscount } from '../utils/validator';
+import { fmtMoney, calculateTotalItemDiscount, getDiscountBreakdown } from '../utils/validator';
+import { analyzeDiscountMatrixError } from '../utils/aiAnalyzer';
+import Markdown from 'react-markdown';
+import { Sparkles } from 'lucide-react';
 
 interface Props {
   calculated: AggregatedData | null;
@@ -12,6 +15,83 @@ interface Props {
 const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [discountDetail, setDiscountDetail] = useState<'sale' | 'return' | null>(null);
+  const [subfamAnalysisInfo, setSubfamAnalysisInfo] = useState<{ subfamId: string, type: 'sale' | 'return', summaryValue: number, calculatedValue: number } | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<{ ticket: string, breakdowns: any[] } | null>(null);
+
+  const handleAiAnalysis = async () => {
+    if (!discountDetail || !summary) return;
+
+    // Check if API key is selected (for Gemini 3 models)
+    if (typeof window !== 'undefined' && (window as any).aistudio) {
+        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+            await (window as any).aistudio.openSelectKey();
+            // After opening the dialog, we proceed. The platform will inject the key.
+        }
+    }
+
+    setIsAnalyzing(true);
+    setAiAnalysis(null);
+    
+    const summaryValue = discountDetail === 'sale' ? summary.header.IMPDESCUENTO_V : summary.header.IMPDESCUENTO_D;
+    const calculatedValue = discountDetail === 'sale' ? (calculated?.global.totalDiscountSale || 0) : (calculated?.global.totalDiscountReturn || 0);
+    
+    try {
+        const report = await analyzeDiscountMatrixError(
+            discountDetail,
+            summaryValue,
+            calculatedValue,
+            contributingFiles,
+            summary
+        );
+        setAiAnalysis(report);
+    } catch (error) {
+        setAiAnalysis("Error al generar el análisis de IA.");
+    } finally {
+        setIsAnalyzing(false);
+    }
+  };
+
+  const handleSubfamilyAiAnalysis = async (type: 'sale' | 'return', subfamId: string, summaryValue: number, calculatedValue: number, subfamFiles: any[]) => {
+    // Check if API key is selected
+    if (typeof window !== 'undefined' && (window as any).aistudio) {
+        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+            await (window as any).aistudio.openSelectKey();
+        }
+    }
+
+    setIsAnalyzing(true);
+    setAiAnalysis(null);
+    setDiscountDetail(type);
+    setSubfamAnalysisInfo({ subfamId, type, summaryValue, calculatedValue });
+    
+    try {
+        const report = await analyzeDiscountMatrixError(
+            type,
+            summaryValue,
+            calculatedValue,
+            subfamFiles,
+            summary,
+            subfamId
+        );
+        setAiAnalysis(report);
+    } catch (error) {
+        setAiAnalysis("Error al generar el análisis de IA para la subfamilia.");
+    } finally {
+        setIsAnalyzing(false);
+    }
+  };
+
+  const closeDetail = () => {
+    setDiscountDetail(null);
+    setAiAnalysis(null);
+    setIsAnalyzing(false);
+    setSubfamAnalysisInfo(null);
+    setSelectedTicket(null);
+  };
 
   // Process data for the table
   const matrixRows = useMemo(() => {
@@ -46,42 +126,83 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
         ...Object.keys(summaryMap).map(Number)
     ]);
 
-    // 3. Build comparison rows
-    return Array.from(allIds).sort((a, b) => a - b).map(id => {
-        const calc = calculated.groups[String(id)] || { 
-            qtySale: 0, grossSale: 0, discountSale: 0, 
-            qtyReturn: 0, grossReturn: 0, discountReturn: 0 
-        };
-        const sum = summaryMap[id] || { qtyV: 0, grossV: 0, discountV: 0, qtyD: 0, grossD: 0, discountD: 0 };
+        // 3. Build comparison rows
+        return Array.from(allIds).sort((a, b) => a - b).map(id => {
+            const calc = calculated.groups[String(id)] || { 
+                qtySale: 0, grossSale: 0, discountSale: 0, 
+                qtyReturn: 0, grossReturn: 0, discountReturn: 0 
+            };
+            const sum = summaryMap[id] || { qtyV: 0, grossV: 0, discountV: 0, qtyD: 0, grossD: 0, discountD: 0 };
 
-        // Check discrepancies (Sales)
-        const diffQtyV = calc.qtySale - sum.qtyV;
-        const diffGrossV = calc.grossSale - sum.grossV;
-        const diffDescV = calc.discountSale - sum.discountV;
+            // Check discrepancies (Sales)
+            const diffQtyV = calc.qtySale - sum.qtyV;
+            const diffGrossV = calc.grossSale - sum.grossV;
+            const diffDescV = calc.discountSale - sum.discountV;
 
-        // Check discrepancies (Returns)
-        const diffQtyD = calc.qtyReturn - sum.qtyD;
-        const diffGrossD = calc.grossReturn - sum.grossD;
-        const diffDescD = calc.discountReturn - sum.discountD;
+            // Check discrepancies (Returns)
+            const diffQtyD = calc.qtyReturn - sum.qtyD;
+            const diffGrossD = calc.grossReturn - sum.grossD;
+            const diffDescD = calc.discountReturn - sum.discountD;
 
-        // Tolerance of < 5 cents (< 50 units) for money fields, but 6 cents for discounts
-        const hasError = 
-            diffQtyV !== 0 || 
-            Math.abs(diffGrossV) > 50 || 
-            Math.abs(diffDescV) >= 60 ||
-            diffQtyD !== 0 || 
-            Math.abs(diffGrossD) > 50 ||
-            Math.abs(diffDescD) >= 60;
+            // Tolerance of < 5 cents (< 50 units) for money fields, but 6 cents for discounts
+            const hasError = 
+                diffQtyV !== 0 || 
+                Math.abs(diffGrossV) > 50 || 
+                Math.abs(diffDescV) >= 60 ||
+                diffQtyD !== 0 || 
+                Math.abs(diffGrossD) > 50 ||
+                Math.abs(diffDescD) >= 60;
 
-        return {
-            id,
-            calc,
-            sum,
-            diffs: { diffQtyV, diffGrossV, diffDescV, diffQtyD, diffGrossD, diffDescD },
-            hasError
-        };
-    });
-  }, [calculated, summary]);
+            // Find contributing files for this subfamily
+            const subfamFilesV = files?.filter(f => f.header.TIPO_VENTA === 1).map(f => {
+                const subfamItems = f.items.filter(item => item.TIPO_SUBFAMILIA === id);
+                const subfamDiscount = subfamItems.reduce((acc, item) => acc + calculateTotalItemDiscount(item, f.header), 0);
+                
+                // Get breakdowns for all items of this subfamily in this ticket
+                const itemBreakdowns = subfamItems.map((item, idx) => ({
+                    lineNum: idx + 1,
+                    desc: item.CD_ARTICULO,
+                    ...getDiscountBreakdown(item, f.header)
+                }));
+
+                return { 
+                    ticket: f.header.NUM_TICKET, 
+                    fileName: f.fileName, 
+                    discount: subfamDiscount,
+                    breakdowns: itemBreakdowns 
+                };
+            }).filter(f => Math.abs(f.discount) > 0) || [];
+
+            const subfamFilesD = files?.filter(f => f.header.TIPO_VENTA === 2).map(f => {
+                const subfamItems = f.items.filter(item => item.TIPO_SUBFAMILIA === id);
+                const subfamDiscount = subfamItems.reduce((acc, item) => acc + calculateTotalItemDiscount(item, f.header), 0);
+                
+                // Get breakdowns for all items of this subfamily in this ticket
+                const itemBreakdowns = subfamItems.map((item, idx) => ({
+                    lineNum: idx + 1,
+                    desc: item.CD_ARTICULO,
+                    ...getDiscountBreakdown(item, f.header)
+                }));
+
+                return { 
+                    ticket: f.header.NUM_TICKET, 
+                    fileName: f.fileName, 
+                    discount: subfamDiscount,
+                    breakdowns: itemBreakdowns 
+                };
+            }).filter(f => Math.abs(f.discount) > 0) || [];
+
+            return {
+                id,
+                calc,
+                sum,
+                diffs: { diffQtyV, diffGrossV, diffDescV, diffQtyD, diffGrossD, diffDescD },
+                hasError,
+                contributingFilesV: subfamFilesV,
+                contributingFilesD: subfamFilesD
+            };
+        });
+    }, [calculated, summary, files]);
 
   // Logic to get the list of files contributing to the selected discount sum
   const contributingFiles = useMemo(() => {
@@ -97,10 +218,18 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
                 return acc + calculateTotalItemDiscount(item, f.header);
             }, 0);
 
+            // Get breakdowns for all items in this ticket
+            const itemBreakdowns = f.items.map((item, idx) => ({
+                lineNum: idx + 1,
+                desc: item.CD_ARTICULO,
+                ...getDiscountBreakdown(item, f.header)
+            }));
+
             return {
                 ticket: f.header.NUM_TICKET,
                 fileName: f.fileName,
-                discount: fileTotalDiscount
+                discount: fileTotalDiscount,
+                breakdowns: itemBreakdowns
             };
         })
         .filter(f => Math.abs(f.discount) > 0) // Filter out files with 0 effective discount
@@ -353,7 +482,18 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
                                             </td>
                                             <td className={`px-2 py-2 text-right font-mono border-r border-gray-200 ${Math.abs(row.diffs.diffDescV) >= 60 ? 'text-red-600 font-bold bg-red-100' : 'text-gray-600'}`}>
                                                 <div className="flex flex-col">
-                                                    <span className="text-indigo-600">{fmtMoney(row.calc.discountSale)}</span>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <span className="text-indigo-600">{fmtMoney(row.calc.discountSale)}</span>
+                                                        {Math.abs(row.diffs.diffDescV) >= 60 && (
+                                                            <button 
+                                                                onClick={() => handleSubfamilyAiAnalysis('sale', String(row.id), row.sum.discountV, row.calc.discountSale, row.contributingFilesV)}
+                                                                className="p-1 text-indigo-500 hover:text-indigo-700 bg-white rounded shadow-sm border border-indigo-100"
+                                                                title="Investigar con IA"
+                                                            >
+                                                                <Sparkles className="w-3 h-3" />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                     <span className="text-gray-400 text-[10px]">vs {fmtMoney(row.sum.discountV)}</span>
                                                 </div>
                                                 {Math.abs(row.diffs.diffDescV) >= 60 && <span className="block text-[10px] text-red-500">Diff: {fmtMoney(row.diffs.diffDescV)}</span>}
@@ -373,7 +513,18 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
                                             </td>
                                             <td className={`px-2 py-2 text-right font-mono ${Math.abs(row.diffs.diffDescD) >= 60 ? 'text-red-600 font-bold bg-red-100' : 'text-gray-600'}`}>
                                                 <div className="flex flex-col">
-                                                    <span className="text-indigo-600">{fmtMoney(row.calc.discountReturn)}</span>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        <span className="text-indigo-600">{fmtMoney(row.calc.discountReturn)}</span>
+                                                        {Math.abs(row.diffs.diffDescD) >= 60 && (
+                                                            <button 
+                                                                onClick={() => handleSubfamilyAiAnalysis('return', String(row.id), row.sum.discountD, row.calc.discountReturn, row.contributingFilesD)}
+                                                                className="p-1 text-indigo-500 hover:text-indigo-700 bg-white rounded shadow-sm border border-indigo-100"
+                                                                title="Investigar con IA"
+                                                            >
+                                                                <Sparkles className="w-3 h-3" />
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                     <span className="text-gray-400 text-[10px]">vs {fmtMoney(row.sum.discountD)}</span>
                                                 </div>
                                                 {Math.abs(row.diffs.diffDescD) >= 60 && <span className="block text-[10px] text-red-500">Diff: {fmtMoney(row.diffs.diffDescD)}</span>}
@@ -396,8 +547,9 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
                 <div className="flex justify-between items-start mb-4">
                     <h3 className="text-lg font-bold text-gray-900">
                         {discountDetail === 'sale' ? 'Sales' : 'Returns'} Discount Analysis
+                        {subfamAnalysisInfo && <span className="ml-2 text-sm font-normal text-indigo-600">(Subfamily {subfamAnalysisInfo.subfamId})</span>}
                     </h3>
-                    <button onClick={() => setDiscountDetail(null)} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={closeDetail} className="text-gray-400 hover:text-gray-600">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -406,11 +558,13 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
                 
                 <div className="space-y-4 overflow-y-auto pr-1">
                     <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                        <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider mb-1">Source 1: Summary File (11008)</p>
+                        <p className="text-xs text-blue-600 font-semibold uppercase tracking-wider mb-1">
+                            Source 1: {subfamAnalysisInfo ? `Subfamily ${subfamAnalysisInfo.subfamId} (11008)` : 'Summary File (11008)'}
+                        </p>
                         <div className="flex justify-between items-baseline">
                              <span className="text-sm text-gray-600">Field: {discountDetail === 'sale' ? 'IMPDESCUENTO_V' : 'IMPDESCUENTO_D'}</span>
                              <span className="text-lg font-mono font-bold text-gray-800">
-                                 {fmtMoney(discountDetail === 'sale' ? sumDescV : sumDescD)}
+                                 {fmtMoney(subfamAnalysisInfo ? subfamAnalysisInfo.summaryValue : (discountDetail === 'sale' ? sumDescV : sumDescD))}
                              </span>
                         </div>
                     </div>
@@ -421,16 +575,18 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
 
                     <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
                         <div className="flex justify-between items-center mb-1">
-                            <p className="text-xs text-purple-600 font-semibold uppercase tracking-wider">Source 2: Sum of Lines (11004)</p>
+                            <p className="text-xs text-purple-600 font-semibold uppercase tracking-wider">
+                                Source 2: {subfamAnalysisInfo ? `Subfamily ${subfamAnalysisInfo.subfamId} (11004)` : 'Sum of Lines (11004)'}
+                            </p>
                             <span className="text-xs text-purple-800 bg-purple-100 px-2 py-0.5 rounded-full font-bold">
-                                {contributingFiles.length} Tickets
+                                {subfamAnalysisInfo ? 'Subfamily Items' : `${contributingFiles.length} Tickets`}
                             </span>
                         </div>
                         
                          <div className="flex justify-between items-baseline mb-2">
                              <span className="text-sm text-gray-600">Summing individual line discounts (D1+D2+D3 + Prorated Header)</span>
                              <span className="text-lg font-mono font-bold text-gray-800">
-                                 {fmtMoney(discountDetail === 'sale' ? calcDescV : calcDescD)}
+                                 {fmtMoney(subfamAnalysisInfo ? subfamAnalysisInfo.calculatedValue : (discountDetail === 'sale' ? calcDescV : calcDescD))}
                              </span>
                         </div>
 
@@ -449,7 +605,11 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
                                         {contributingFiles.map((f, i) => (
-                                            <tr key={i} className="hover:bg-purple-50">
+                                            <tr 
+                                                key={i} 
+                                                className={`hover:bg-purple-50 cursor-pointer transition-colors ${selectedTicket?.ticket === f.ticket ? 'bg-purple-100' : ''}`}
+                                                onClick={() => setSelectedTicket({ ticket: f.ticket, breakdowns: f.breakdowns })}
+                                            >
                                                 <td className="px-2 py-1 text-gray-700 font-mono">{f.ticket}</td>
                                                 <td className="px-2 py-1 text-gray-500 truncate max-w-[120px]" title={f.fileName}>{f.fileName}</td>
                                                 <td className="px-2 py-1 text-right font-mono font-medium text-purple-700">{fmtMoney(f.discount)}</td>
@@ -459,23 +619,113 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
                                 </table>
                             )}
                         </div>
+
+                        {/* Ticket Breakdown Display */}
+                        {selectedTicket && (
+                            <div className="mt-2 p-3 bg-indigo-50 rounded-lg border border-indigo-100 animate-in slide-in-from-top-2 duration-200">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h5 className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider">
+                                        Breakdown: Ticket {selectedTicket.ticket}
+                                    </h5>
+                                    <button 
+                                        onClick={() => setSelectedTicket(null)}
+                                        className="text-indigo-400 hover:text-indigo-600 text-xs font-bold"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                                    {selectedTicket.breakdowns.map((b, idx) => (
+                                        <div key={idx} className="bg-white p-2 rounded border border-indigo-50 shadow-sm text-[10px]">
+                                            <div className="flex justify-between font-bold text-gray-800 mb-1 border-b border-gray-50 pb-1">
+                                                <span className="truncate max-w-[180px]">L{b.lineNum}: {b.desc}</span>
+                                                <span className="text-indigo-600 font-mono">{fmtMoney(b.total)}</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-1 text-gray-500">
+                                                <div className="flex justify-between">
+                                                    <span>Base:</span>
+                                                    <span className="font-mono">{fmtMoney(b.baseVenta)}</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Line Disc:</span>
+                                                    <span className="font-mono">{fmtMoney(b.lineDiscount)}</span>
+                                                </div>
+                                                <div className="col-span-2 flex justify-between pt-1 mt-1 border-t border-gray-50 text-indigo-700 font-medium">
+                                                    <span>Header Prorated:</span>
+                                                    <span className="font-mono">{fmtMoney(b.headerDiscount)}</span>
+                                                </div>
+                                                <div className="col-span-2 flex justify-end gap-2 text-[9px] opacity-70">
+                                                    <span>D1: {fmtMoney(b.headerDetails.d1)}</span>
+                                                    <span>D2: {fmtMoney(b.headerDetails.d2)}</span>
+                                                    <span>D3: {fmtMoney(b.headerDetails.d3)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-2 text-[9px] text-indigo-400 italic text-right">
+                                    * Total = Line Disc + (D1 + D2 + D3)
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className={`p-3 rounded-lg border flex justify-between items-center ${
-                        (discountDetail === 'sale' ? isDescVError : isDescDError) 
+                        (subfamAnalysisInfo ? Math.abs(subfamAnalysisInfo.calculatedValue - subfamAnalysisInfo.summaryValue) >= 60 : (discountDetail === 'sale' ? isDescVError : isDescDError)) 
                         ? 'bg-red-50 border-red-200' 
                         : 'bg-green-50 border-green-200'
                     }`}>
                         <span className="font-semibold text-gray-700">Difference</span>
-                        <span className={`font-mono font-bold ${(discountDetail === 'sale' ? isDescVError : isDescDError) ? 'text-red-600' : 'text-green-600'}`}>
-                            {fmtMoney(discountDetail === 'sale' ? diffDescV : diffDescD)}
+                        <span className={`font-mono font-bold ${(subfamAnalysisInfo ? Math.abs(subfamAnalysisInfo.calculatedValue - subfamAnalysisInfo.summaryValue) >= 60 : (discountDetail === 'sale' ? isDescVError : isDescDError)) ? 'text-red-600' : 'text-green-600'}`}>
+                            {fmtMoney(subfamAnalysisInfo ? (subfamAnalysisInfo.calculatedValue - subfamAnalysisInfo.summaryValue) : (discountDetail === 'sale' ? diffDescV : diffDescD))}
                         </span>
                     </div>
+
+                    {/* AI Analysis Section */}
+                    {((discountDetail === 'sale' && (subfamAnalysisInfo ? Math.abs(subfamAnalysisInfo.calculatedValue - subfamAnalysisInfo.summaryValue) >= 60 : isDescVError)) || 
+                      (discountDetail === 'return' && (subfamAnalysisInfo ? Math.abs(subfamAnalysisInfo.calculatedValue - subfamAnalysisInfo.summaryValue) >= 60 : isDescDError))) && (
+                        <div className="mt-6 pt-6 border-t border-gray-100">
+                            {!aiAnalysis ? (
+                                <button
+                                    onClick={handleAiAnalysis}
+                                    disabled={isAnalyzing || !!subfamAnalysisInfo}
+                                    className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold transition-all ${
+                                        isAnalyzing || !!subfamAnalysisInfo
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'
+                                    }`}
+                                >
+                                    {isAnalyzing ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Analizando con IA...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="w-5 h-5" />
+                                            {subfamAnalysisInfo ? 'Análisis en curso...' : 'Investigar con IA'}
+                                        </>
+                                    )}
+                                </button>
+                            ) : (
+                                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                                    <div className="flex items-center gap-2 mb-3 text-indigo-600">
+                                        <Sparkles className="w-4 h-4" />
+                                        <h4 className="text-sm font-bold uppercase tracking-wider">Informe de la IA</h4>
+                                    </div>
+                                    <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed">
+                                        <Markdown>{aiAnalysis}</Markdown>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                 </div>
 
                 <div className="mt-6 flex justify-end pt-2 border-t border-gray-100">
                     <button 
-                        onClick={() => setDiscountDetail(null)}
+                        onClick={closeDetail}
                         className="bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-medium py-2 px-4 rounded transition-colors"
                     >
                         Close

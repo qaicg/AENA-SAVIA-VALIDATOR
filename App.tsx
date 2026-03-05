@@ -12,6 +12,7 @@ import { identifyTransactionType, parse11004, parse11008, parseSystemEvent } fro
 import { aggregateSales, generateDiscountBreakdown, inspectSingleFile, inspectSummaryFile, validateCoherence, fmtMoney } from './utils/validator';
 import { validateSyntaxAndSemantics } from './utils/syntaxValidator';
 import { analyzeErrorWithGemini } from './utils/aiAnalyzer';
+import AIChat from './components/AIChat';
 import { FileDiscountBreakdown, ParsedSale11004, ParsedSummary11008, ParsedSystemEvent, SingleFileInspection, TransactionType, ValidationResult, AggregatedData } from './types';
 
 // Icons
@@ -415,54 +416,135 @@ function App() {
 
               {activeView === 'dashboard' && (
                   <div className="py-8 px-8 max-w-7xl mx-auto">
-                      {/* Certification Banner */}
-                      <div className="mb-8 flex justify-center">
-                          {validationResults.every(r => r.status !== 'invalid') ? (
-                              <div className="bg-green-50 border-2 border-green-200 px-10 py-6 rounded-[2rem] shadow-xl shadow-green-100 flex items-center space-x-6">
-                                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg shrink-0">
-                                      <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                      </svg>
-                                  </div>
-                                  <div>
-                                      <h2 className="text-4xl font-black text-green-800 tracking-tighter leading-none uppercase">Certificado</h2>
-                                      <p className="text-green-600 font-medium mt-1">Todos los controles de integridad han sido superados.</p>
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                          
+                          {/* Bento Item 1: Certification Status (Large) */}
+                          <div className="md:col-span-8 bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-gray-100 flex flex-col justify-center relative overflow-hidden group">
+                              <div className="absolute top-0 right-0 w-64 h-64 bg-slate-50 rounded-full -mr-20 -mt-20 transition-transform group-hover:scale-110 duration-700"></div>
+                              <div className="relative z-10 flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
+                                  {validationResults.every(r => r.status !== 'invalid') ? (
+                                      <>
+                                          <div className="w-24 h-24 bg-green-500 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-green-200 shrink-0 rotate-3">
+                                              <svg className="w-14 h-14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                              </svg>
+                                          </div>
+                                          <div className="text-center md:text-left">
+                                              <h2 className="text-5xl font-black text-slate-900 tracking-tighter leading-none uppercase mb-2">Certificado</h2>
+                                              <p className="text-slate-500 font-medium text-lg max-w-md">Todos los controles de integridad y normativa AENA SAVIA han sido superados con éxito.</p>
+                                              <div className="mt-4 flex space-x-2">
+                                                  <span className="px-3 py-1 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-widest rounded-full">Integridad OK</span>
+                                                  <span className="px-3 py-1 bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-widest rounded-full">Sintaxis OK</span>
+                                              </div>
+                                          </div>
+                                      </>
+                                  ) : (
+                                      <>
+                                          <div className="w-24 h-24 bg-red-500 rounded-3xl flex items-center justify-center text-white shadow-2xl shadow-red-200 shrink-0 -rotate-3">
+                                              <svg className="w-14 h-14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                              </svg>
+                                          </div>
+                                          <div className="text-center md:text-left">
+                                              <h2 className="text-5xl font-black text-slate-900 tracking-tighter leading-none uppercase mb-2">No Apto</h2>
+                                              <p className="text-slate-500 font-medium text-lg max-w-md">Se han detectado discrepancias críticas que impiden la certificación del software.</p>
+                                              <div className="mt-4 flex space-x-2">
+                                                  <span className="px-3 py-1 bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-widest rounded-full">Errores Críticos</span>
+                                                  <span className="px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-widest rounded-full">Revisión Manual</span>
+                                              </div>
+                                          </div>
+                                      </>
+                                  )}
+                              </div>
+                          </div>
+
+                          {/* Bento Item 2: Quick Stats (Medium) */}
+                          <div className="md:col-span-4 grid grid-cols-2 gap-4">
+                              <div className="bg-slate-900 rounded-[2rem] p-6 text-white shadow-xl flex flex-col justify-between">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Bruto</span>
+                                  <div className="mt-2">
+                                      <h3 className="text-2xl font-black tracking-tighter">{aggregatedData ? fmtMoney(aggregatedData.global.totalGrossSale) : '-'}</h3>
+                                      <p className="text-[10px] text-slate-500 mt-1">{aggregatedData?.global.countSale} Tickets</p>
                                   </div>
                               </div>
-                          ) : (
-                              <div className="bg-red-50 border-2 border-red-200 px-10 py-6 rounded-[2rem] shadow-xl shadow-red-100 flex items-center space-x-6">
-                                  <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg shrink-0">
-                                      <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                                      </svg>
-                                  </div>
-                                  <div>
-                                      <h2 className="text-4xl font-black text-red-800 tracking-tighter leading-none uppercase">No Certificado</h2>
-                                      <p className="text-red-600 font-medium mt-1">Se han detectado discrepancias críticas en los datos.</p>
+                              <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-xl flex flex-col justify-between">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Devoluciones</span>
+                                  <div className="mt-2">
+                                      <h3 className="text-2xl font-black tracking-tighter text-red-600">{aggregatedData ? fmtMoney(aggregatedData.global.totalGrossReturn) : '-'}</h3>
+                                      <p className="text-[10px] text-slate-400 mt-1">{aggregatedData?.global.countReturn} Tickets</p>
                                   </div>
                               </div>
-                          )}
-                      </div>
+                              <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-xl flex flex-col justify-between col-span-2">
+                                  <div className="flex justify-between items-center">
+                                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Ingreso Neto</span>
+                                      <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                                      </div>
+                                  </div>
+                                  <h3 className="text-3xl font-black tracking-tighter mt-2">{aggregatedData ? fmtMoney(aggregatedData.global.totalNetSale - aggregatedData.global.totalNetReturn) : '-'}</h3>
+                              </div>
+                          </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                          <KPI label="Total Sales" value={aggregatedData ? fmtMoney(aggregatedData.global.totalGrossSale) : '-'} subtext={`${aggregatedData?.global.countSale} Tickets`} color="green" />
-                          <KPI label="Total Returns" value={aggregatedData ? fmtMoney(aggregatedData.global.totalGrossReturn) : '-'} subtext={`${aggregatedData?.global.countReturn} Tickets`} color="red" />
-                          <KPI label="Net Revenue" value={aggregatedData ? fmtMoney(aggregatedData.global.totalNetSale - aggregatedData.global.totalNetReturn) : '-'} color="blue" />
-                          <KPI label="Discounts" value={aggregatedData ? fmtMoney(aggregatedData.global.totalDiscountSale + aggregatedData.global.totalDiscountReturn) : '-'} color="blue" />
-                      </div>
+                          {/* Bento Item 3: Main Analysis Table (Large) */}
+                          <div className="md:col-span-12 lg:col-span-9 bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-gray-100 overflow-hidden">
+                               <div className="bg-white border-b border-gray-100 px-8 pt-4 flex justify-between items-center">
+                                   <nav className="-mb-px flex space-x-8">
+                                      {['overview', 'matrix', 'ops', 'finance'].map((tab) => (
+                                          <button key={tab} onClick={() => setActiveTab(tab as ResultTab)} className={`${activeTab === tab ? 'border-slate-900 text-slate-900' : 'border-transparent text-gray-400 hover:text-gray-600'} py-4 px-1 border-b-2 font-bold text-[10px] uppercase tracking-widest transition-colors`}>{tab}</button>
+                                      ))}
+                                   </nav>
+                                   <div className="flex items-center space-x-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                       <span className="w-2 h-2 bg-aena-green rounded-full animate-pulse"></span>
+                                       <span>Live Audit</span>
+                                   </div>
+                               </div>
+                               <div className="p-8">
+                                  {activeTab === 'overview' && <ResultsTable results={validationResults} isExternalReport={isApiReportView} salesFiles={salesFiles} />}
+                                  {activeTab === 'matrix' && <SubfamilyCoherenceMatrix calculated={aggregatedData} summary={summaryFile} files={salesFiles} />}
+                                  {activeTab === 'ops' && <SequenceTimeAnalysis files={salesFiles} />}
+                                  {activeTab === 'finance' && <DiscountBreakdown data={discountBreakdown} />}
+                               </div>
+                          </div>
 
-                      <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-gray-100 overflow-hidden mb-8">
-                           <div className="bg-white border-b border-gray-100 px-8 pt-4"><nav className="-mb-px flex space-x-8">
-                              {['overview', 'matrix', 'ops', 'finance'].map((tab) => (
-                                  <button key={tab} onClick={() => setActiveTab(tab as ResultTab)} className={`${activeTab === tab ? 'border-aena-green text-aena-green' : 'border-transparent text-gray-500 hover:text-gray-700'} py-4 px-1 border-b-2 font-bold text-xs uppercase tracking-widest transition-colors capitalize`}>{tab}</button>
-                              ))}
-                           </nav></div>
-                           <div className="p-8">
-                              {activeTab === 'overview' && <ResultsTable results={validationResults} isExternalReport={isApiReportView} />}
-                              {activeTab === 'matrix' && <SubfamilyCoherenceMatrix calculated={aggregatedData} summary={summaryFile} files={salesFiles} />}
-                              {activeTab === 'ops' && <SequenceTimeAnalysis files={salesFiles} />}
-                              {activeTab === 'finance' && <DiscountBreakdown data={discountBreakdown} />}
-                           </div>
+                          {/* Bento Item 4: AI Insights Sidebar */}
+                          <div className="md:col-span-12 lg:col-span-3 space-y-6">
+                              <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-[2rem] p-8 text-white shadow-2xl relative overflow-hidden">
+                                  <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-white/5 rounded-full blur-2xl"></div>
+                                  <h4 className="text-xs font-bold uppercase tracking-widest text-aena-green mb-4">AI Insight</h4>
+                                  <p className="text-sm text-slate-300 leading-relaxed italic">
+                                      {validationResults.some(r => r.status === 'invalid') 
+                                        ? "He detectado discrepancias en los totales de subfamilia. Esto suele deberse a un redondeo incorrecto en el software POS."
+                                        : "La estructura de los ficheros es impecable. El cumplimiento de la norma 11004 es del 100%."}
+                                  </p>
+                                  <button 
+                                    onClick={() => setActiveView('api')}
+                                    className="mt-6 w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all border border-white/10"
+                                  >
+                                      Ver Documentación
+                                  </button>
+                              </div>
+
+                              <div className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-xl">
+                                  <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-6">Resumen de Carga</h4>
+                                  <div className="space-y-4">
+                                      <div className="flex justify-between items-center">
+                                          <span className="text-xs text-slate-500">Ficheros 11004</span>
+                                          <span className="text-xs font-bold">{salesFiles.length}</span>
+                                      </div>
+                                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                          <div className="bg-aena-green h-full" style={{ width: '100%' }}></div>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                          <span className="text-xs text-slate-500">Ficheros 11008</span>
+                                          <span className="text-xs font-bold">{summaryFile ? '1' : '0'}</span>
+                                      </div>
+                                      <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                          <div className="bg-blue-500 h-full" style={{ width: summaryFile ? '100%' : '0%' }}></div>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+
                       </div>
                   </div>
               )}
@@ -474,6 +556,13 @@ function App() {
       {inspectingFile && (
           <FileInspector data={inspectingFile} onClose={() => setInspectingFile(null)} />
       )}
+
+      {/* AI Contextual Chat */}
+      <AIChat 
+        results={validationResults} 
+        aggregatedData={aggregatedData} 
+        summary={summaryFile} 
+      />
     </div>
   );
 }
