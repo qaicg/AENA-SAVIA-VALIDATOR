@@ -118,9 +118,12 @@ function App() {
 
             if (ops) {
                 const hydratedSales = ops.map((s: any) => ({
-                    fileName: s.n,
-                    header: s.h,
-                    items: [], taxes: [], payments: [], rawContent: ""
+                    fileName: isMinified ? s.n : s.fileName,
+                    header: isMinified ? s.h : s.header,
+                    items: isMinified ? (s.i || []) : (s.items || []),
+                    taxes: isMinified ? (s.t || []) : (s.taxes || []),
+                    payments: isMinified ? (s.p || []) : (s.payments || []),
+                    rawContent: ""
                 }));
                 setSalesFiles(hydratedSales);
                 setFilesLoaded(hydratedSales.map((s: any) => ({ name: s.fileName, type: 'Sales', raw: s })));
