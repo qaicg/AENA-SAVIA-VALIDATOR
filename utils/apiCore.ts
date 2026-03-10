@@ -74,7 +74,10 @@ export const runFullValidationProcess = async (files: File[]): Promise<any> => {
           HORA_REAL: s.header.HORA_REAL, 
           TIPO_VENTA: s.header.TIPO_VENTA,
           IMPBRUTO_T: s.header.IMPBRUTO_T 
-      } 
+      },
+      i: s.items,
+      t: s.taxes,
+      p: s.payments
     }))
   };
 
