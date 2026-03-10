@@ -117,6 +117,7 @@ function App() {
             setDiscountBreakdown(disc || []);
 
             if (ops) {
+                console.log("Raw ops data:", ops);
                 const hydratedSales = ops.map((s: any) => ({
                     fileName: isMinified ? s.n : s.fileName,
                     header: isMinified ? s.h : s.header,
@@ -125,6 +126,7 @@ function App() {
                     payments: isMinified ? (s.p || []) : (s.payments || []),
                     rawContent: ""
                 }));
+                console.log("Hydrated sales:", hydratedSales);
                 setSalesFiles(hydratedSales);
                 setFilesLoaded(hydratedSales.map((s: any) => ({ name: s.fileName, type: 'Sales', raw: s })));
             }
