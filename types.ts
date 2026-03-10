@@ -168,6 +168,15 @@ export interface FileDiscountBreakdown {
       discount: number;
       gross: number;
       base: number;
+      // Breakdown
+      lineDiscount: number;
+      d1: number;
+      d2: number;
+      d3: number;
+      // Header Percentages
+      dto1: number;
+      dto2: number;
+      dto3: number;
   }[];
 }
 

@@ -6,7 +6,13 @@ import { AggregatedData, FileDiscountBreakdown, ParsedSale11004, ParsedSummary11
 export const fmtMoney = (val: number) => (val / 1000).toFixed(3);
 
 // Calculate total item discount including line discounts AND prorated header discounts
-export const calculateTotalItemDiscount = (item: SaleItemLine, header: SaleHeader): number => {
+export const calculateTotalItemDiscount = (item: SaleItemLine, header: SaleHeader): {
+    total: number,
+    lineDiscount: number,
+    d1: number,
+    d2: number,
+    d3: number
+} => {
     const lineDiscount = item.IMPDESCUENTO_1 + item.IMPDESCUENTO_2 + item.IMPDESCUENTO_3;
     
     // AutoIt Logic from vrfContarUdsTotales / SubfamiliasParser
@@ -42,7 +48,13 @@ export const calculateTotalItemDiscount = (item: SaleItemLine, header: SaleHeade
     
     const proratedHeaderDiscount = d1 + d2 + d3;
     
-    return lineDiscount + proratedHeaderDiscount;
+    return {
+        total: lineDiscount + proratedHeaderDiscount,
+        lineDiscount,
+        d1,
+        d2,
+        d3
+    };
 };
 
 // Returns a detailed breakdown of how the discount was calculated for an item
@@ -89,7 +101,7 @@ export const inspectSingleFile = (file: ParsedSale11004): SingleFileInspection =
         sumGross += item.IMPBRUTO_A;
         sumNet += item.IMPNETO_A;
         sumUnits += item.UDS_A;
-        sumDiscount += calculateTotalItemDiscount(item, file.header);
+        sumDiscount += calculateTotalItemDiscount(item, file.header).total;
     });
 
     // Payment Sums (7xx)
@@ -252,18 +264,24 @@ export const inspectSummaryFile = (file: ParsedSummary11008): SingleFileInspecti
 // NEW: Generates a detailed breakdown of discounts per file and subfamily
 export const generateDiscountBreakdown = (sales: ParsedSale11004[]): FileDiscountBreakdown[] => {
     return sales.map(file => {
-        const subFamilyMap: Record<number, { discount: number, gross: number, base: number }> = {};
+        const subFamilyMap: Record<number, { discount: number, gross: number, base: number, lineDiscount: number, d1: number, d2: number, d3: number }> = {};
 
         file.items.forEach(item => {
             const disc = calculateTotalItemDiscount(item, file.header);
             
             if (!subFamilyMap[item.TIPO_SUBFAMILIA]) {
-                subFamilyMap[item.TIPO_SUBFAMILIA] = { discount: 0, gross: 0, base: 0 };
+                subFamilyMap[item.TIPO_SUBFAMILIA] = { 
+                    discount: 0, gross: 0, base: 0, lineDiscount: 0, d1: 0, d2: 0, d3: 0 
+                };
             }
             
-            subFamilyMap[item.TIPO_SUBFAMILIA].discount += disc;
+            subFamilyMap[item.TIPO_SUBFAMILIA].discount += disc.total;
             subFamilyMap[item.TIPO_SUBFAMILIA].gross += item.IMPBRUTO_A;
             subFamilyMap[item.TIPO_SUBFAMILIA].base += item.IMPVENTA_A;
+            subFamilyMap[item.TIPO_SUBFAMILIA].lineDiscount += disc.lineDiscount;
+            subFamilyMap[item.TIPO_SUBFAMILIA].d1 += disc.d1;
+            subFamilyMap[item.TIPO_SUBFAMILIA].d2 += disc.d2;
+            subFamilyMap[item.TIPO_SUBFAMILIA].d3 += disc.d3;
         });
 
         // Convert map to array
@@ -271,7 +289,14 @@ export const generateDiscountBreakdown = (sales: ParsedSale11004[]): FileDiscoun
             id: Number(id),
             discount: val.discount,
             gross: val.gross,
-            base: val.base
+            base: val.base,
+            lineDiscount: val.lineDiscount,
+            d1: val.d1,
+            d2: val.d2,
+            d3: val.d3,
+            dto1: file.header.DTO_PORC_1,
+            dto2: file.header.DTO_PORC_2,
+            dto3: file.header.DTO_PORC_3
         })).sort((a, b) => a.id - b.id);
 
         return {
@@ -337,18 +362,18 @@ export const aggregateSales = (sales: ParsedSale11004[]): AggregatedData => {
       const totalItemDiscount = calculateTotalItemDiscount(item, sale.header);
 
       if (isSale) {
-         data.global.totalDiscountSale += totalItemDiscount; 
+         data.global.totalDiscountSale += totalItemDiscount.total; 
          
          data.groups[key].grossSale += item.IMPBRUTO_A;
          data.groups[key].netSale += item.IMPNETO_A;
-         data.groups[key].discountSale += totalItemDiscount;
+         data.groups[key].discountSale += totalItemDiscount.total;
          data.groups[key].qtySale += item.UDS_A; 
       } else if (isReturn) {
-         data.global.totalDiscountReturn += totalItemDiscount; 
+         data.global.totalDiscountReturn += totalItemDiscount.total; 
 
          data.groups[key].grossReturn += item.IMPBRUTO_A;
          data.groups[key].netReturn += item.IMPNETO_A;
-         data.groups[key].discountReturn += totalItemDiscount;
+         data.groups[key].discountReturn += totalItemDiscount.total;
          data.groups[key].qtyReturn += item.UDS_A;
       }
     });

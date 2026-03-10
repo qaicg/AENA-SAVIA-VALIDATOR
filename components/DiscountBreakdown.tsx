@@ -34,7 +34,14 @@ const DiscountBreakdown: React.FC<Props> = ({ data }) => {
             isReturn: boolean,
             base: number,
             discount: number,
-            gross: number
+            gross: number,
+            lineDiscount: number,
+            d1: number,
+            d2: number,
+            d3: number,
+            dto1: number,
+            dto2: number,
+            dto3: number
         }[]
     }>();
 
@@ -58,7 +65,14 @@ const DiscountBreakdown: React.FC<Props> = ({ data }) => {
                     isReturn: file.isReturn,
                     base: sf.base,
                     discount: sf.discount,
-                    gross: sf.gross
+                    gross: sf.gross,
+                    lineDiscount: sf.lineDiscount,
+                    d1: sf.d1,
+                    d2: sf.d2,
+                    d3: sf.d3,
+                    dto1: sf.dto1,
+                    dto2: sf.dto2,
+                    dto3: sf.dto3
                 });
             }
         });
@@ -161,6 +175,10 @@ const DiscountBreakdown: React.FC<Props> = ({ data }) => {
                                           <td className="px-4 py-2 text-right text-gray-500">{fmtMoney(item.base)}</td>
                                           <td className={`px-4 py-2 text-right font-bold font-mono ${item.isReturn ? 'text-amber-700' : 'text-blue-700'}`}>
                                               {fmtMoney(item.discount)}
+                                              <div className="text-[9px] text-gray-500 mt-0.5 bg-gray-50 p-1 rounded font-normal">
+                                                  <div className="font-bold text-gray-600">Formula: L + D1 + D2 + D3</div>
+                                                  <div>L:{fmtMoney(item.lineDiscount)} + D1:{fmtMoney(item.d1)} (Base * {item.dto1/100}%) + D2:{fmtMoney(item.d2)} (Base * {item.dto2/100}%) + D3:{fmtMoney(item.d3)} (Base * {item.dto3/100}%)</div>
+                                              </div>
                                           </td>
                                           <td className="px-4 py-2 text-gray-400 truncate max-w-xs" title={item.fileName}>{item.fileName}</td>
                                       </tr>
@@ -202,6 +220,10 @@ const DiscountBreakdown: React.FC<Props> = ({ data }) => {
                                     <td className="px-2 py-1 text-right text-gray-600 font-medium">{fmtMoney(sf.base)}</td>
                                     <td className="px-2 py-1 text-right font-mono text-blue-600 font-medium">
                                         {fmtMoney(sf.discount)}
+                                        <div className="text-[9px] text-gray-500 mt-0.5 bg-gray-50 p-1 rounded">
+                                            <div className="font-bold text-gray-600">Formula: L + D1 + D2 + D3</div>
+                                            <div>L:{fmtMoney(sf.lineDiscount)} + D1:{fmtMoney(sf.d1)} (Base * {sf.dto1/100}%) + D2:{fmtMoney(sf.d2)} (Base * {sf.dto2/100}%) + D3:{fmtMoney(sf.d3)} (Base * {sf.dto3/100}%)</div>
+                                        </div>
                                     </td>
                                     <td className="px-2 py-1 text-right text-gray-600">{fmtMoney(sf.gross)}</td>
                                 </tr>

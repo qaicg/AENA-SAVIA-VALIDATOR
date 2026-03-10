@@ -162,7 +162,7 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
             // Find contributing files for this subfamily
             const subfamFilesV = files?.filter(f => f.header.TIPO_VENTA === 1).map(f => {
                 const subfamItems = f.items.filter(item => item.TIPO_SUBFAMILIA === id);
-                const subfamDiscount = subfamItems.reduce((acc, item) => acc + calculateTotalItemDiscount(item, f.header), 0);
+                const subfamDiscount = subfamItems.reduce((acc, item) => acc + calculateTotalItemDiscount(item, f.header).total, 0);
                 
                 // Get breakdowns for all items of this subfamily in this ticket
                 const itemBreakdowns = subfamItems.map((item, idx) => ({
@@ -181,7 +181,7 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
 
             const subfamFilesD = files?.filter(f => f.header.TIPO_VENTA === 2).map(f => {
                 const subfamItems = f.items.filter(item => item.TIPO_SUBFAMILIA === id);
-                const subfamDiscount = subfamItems.reduce((acc, item) => acc + calculateTotalItemDiscount(item, f.header), 0);
+                const subfamDiscount = subfamItems.reduce((acc, item) => acc + calculateTotalItemDiscount(item, f.header).total, 0);
                 
                 // Get breakdowns for all items of this subfamily in this ticket
                 const itemBreakdowns = subfamItems.map((item, idx) => ({
@@ -221,7 +221,7 @@ const SubfamilyCoherenceMatrix: React.FC<Props> = ({ calculated, summary, files 
         .map(f => {
             // Recalculate discount based on lines to match Global Logic
             const fileTotalDiscount = f.items.reduce((acc, item) => {
-                return acc + calculateTotalItemDiscount(item, f.header);
+                return acc + calculateTotalItemDiscount(item, f.header).total;
             }, 0);
 
             // Get breakdowns for all items in this ticket
